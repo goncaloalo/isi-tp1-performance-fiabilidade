@@ -1,0 +1,4 @@
+*.log
+.kettle/
+data/staging/*
+!data/staging/.gitkeep
