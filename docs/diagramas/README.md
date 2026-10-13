@@ -19,15 +19,19 @@ Estes prints comprovam as decisões técnicas, a validação de dados e as expre
 
 | Ficheiro Alvo | Elemento no Spoon | Descrição do Conteúdo a Capturar |
 | :--- | :--- | :--- |
-| `01_T1_canvas_completo.png` | Canvas Global | Visão panorâmica de todos os steps e hops da transformação, incluindo o desvio para rejeitados. |
-| `02_T1_step_csv_input.png` | Dialog: *Ler specs CSV* | Janela de configuração com o delimitador `,`, encoding `UTF-8` e a grelha de campos e tipos (`Number` em `zero_to_sixty_mph`). |
-| `03_T1_step_regex_versao.png` | Dialog: *Extrair versao via Regex* | Janela com a expressão regular `.*?\b(Competition\|CSL\|GTS\|CS\|Touring)\b.*` e o campo de captura `versao`. |
-| `04_T1_step_null_if.png` | Dialog: *Tratar nulos* | Janela do step `If field value is null` configurando a imputação de `'Base'` no campo `versao`. |
-| `05_T1_step_filter_peso.png` | Dialog: *Validar peso* | Condição `weight_kg IS NOT NULL` e o direcionamento dos registos inválidos para o step de rejeitados. |
-| `06_T1_step_regex_prefixo.png` | Dialog: *Extrair prefixo modelo* | Expressão regular `^(M\d)\b.*` para isolar o prefixo do modelo para o lookup. |
-| `07_T1_step_calculator.png` | Dialog: *Calcular métricas* | Grelha de fórmulas do `Calculator` com os cálculos encadeados de `peso_ton`, `litros`, `hp_por_tonelada` e `hp_por_litro`. |
-| `08_T1_step_stream_lookup.png` | Dialog: *Mapear séries* | Junção por `model_prefix` com `series_lookup.csv` e campos recuperados (`series`, `body_type`). |
-| `09_T1_execucao_metrics.png` | Execution Results | Painel inferior após execução no Spoon: *Step Metrics* (linhas lidas, escritas e rejeitadas) e separador *Preview data*. |
+| `01_T1_canvas_completo.png` | Canvas Global | Visão panorâmica de todos os steps e hops da transformação, incluindo o desvio para rejeitados e o step de constantes. |
+| `T1_step01_csv_input.png` | Dialog: *Ler specs CSV* | Janela de configuração com o delimitador `,`, encoding `UTF-8` e a grelha de campos e tipos (`Number` em `zero_to_sixty_mph`). |
+| `T1_step02_string_operations.png` | Dialog: *Limpar strings* | Janela de operações sobre strings (`trim both` e `upper` em `make`; `trim both` em `model`). |
+| `T1_step03_regex_versao.png` | Dialog: *Extrair versao via Regex* | Janela com a expressão regular `.*?\b(Competition\|CSL\|GTS\|CS\|Touring)\b.*` e o campo de captura `versao`. |
+| `T1_step04_null_if.png` | Dialog: *Tratar nulos* | Janela do step `If field value is null` configurando a imputação de `'Base'` no campo `versao`. |
+| `T1_step05_filter_peso.png` | Dialog: *Validar peso* | Condição `weight_kg IS NOT NULL` e o direcionamento dos registos inválidos para o step de rejeitados. |
+| `T1_step06_regex_prefixo.png` | Dialog: *Extrair prefixo modelo* | Expressão regular `^(M\d)\b.*` para isolar o prefixo do modelo para o lookup. |
+| `T1_step07_sort_unique.png` | Dialog: *Remover duplicados* | Encadeamento de `Sort rows` com `Unique rows` baseado na chave composta `make, model, year`. |
+| `T1_step08_add_constants.png` | Dialog: *Add constants* | Configuração do step `Add constants` com o campo `const_1000` (Type: `Number`, Value: `1000`) para viabilizar a divisão no `Calculator`. |
+| `T1_step09_calculator.png` | Dialog: *Calcular métricas* | Grelha de fórmulas do `Calculator` com os cálculos encadeados de `peso_ton`, `litros`, `hp_por_tonelada` e `hp_por_litro` consumindo `const_1000`. |
+| `T1_step10_stream_lookup.png` | Dialog: *Mapear séries* | Junção por `model_prefix` com `series_lookup.csv` e campos recuperados (`series`, `body_type`). |
+| `T1_step11_text_output.png` | Dialog: *Exportar staging* | Janela de configuração do destino final `data/staging/specs_limpas.csv`. |
+| `T1_execucao_metrics.png` | Execution Results | Painel inferior após execução no Spoon: *Step Metrics* (linhas lidas, escritas e rejeitadas) e separador *Preview data*. |
 
 ---
 
