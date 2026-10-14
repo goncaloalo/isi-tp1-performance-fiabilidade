@@ -270,6 +270,154 @@ var url_recalls = "https://api.nhtsa.gov/recalls/recallsByVehicle?make="
    - **Expressão JSONPath:** `$.Count`
    - **Campo de destino:** `nhtsa_recalls_count` (`Integer`)
 
+---
+
+# Caderno de Decisões Técnicas de ETL — Transformação T3 (`T3_consolidate_metrics.ktr`)
+
+- **Unidade Curricular:** Integração de Sistemas de Informação (ISI) — Licenciatura em Engenharia de Sistemas Informáticos (LESI), IPCA/EST
+- **Projeto:** ISI TP1 — Análise de Performance e Fiabilidade Automóvel
+- **Artefacto:** `kettle/transformations/T3_consolidate_metrics.ktr`
+- **Áreas de Dados Envolvidas:** `data/processed/specs_limpas.csv` e `data/processed/nhtsa_recalls.csv` (origens) $\rightarrow$ `data/processed/bmw_m_performance_fiabilidade.csv` (destino consolidado)
+
+---
+
+## 9. Transformação T3: Consolidação e Métricas Finais — Secção 4.3 do Relatório
+
+A Transformação T3 consolida os dados de especificações técnicas (`specs_limpas.csv`) com o histórico de fiabilidade e segurança rodoviária da NHTSA (`nhtsa_recalls.csv`). Esta etapa calcula indicadores analíticos combinados e gera o artefacto tabular final do projeto.
+
+### 9.1. Arquitetura do Pipeline ETL
+
+O fluxo é composto por 10 steps organizados em 2 ramos concorrentes e um tronco de consolidação:
+
+```mermaid
+flowchart TD
+    subgraph RAMO_SPECS["Ramo Superior: Especificações Mecânicas"]
+        A1["Ler specs_limpas CSV\n(CSV file input:\nLazy conversion = N)"] --> A2["Ordenar specs\n(Sort rows:\nmake, model_prefix, year)"]
+    end
+
+    subgraph RAMO_RECALLS["Ramo Inferior: Segurança e Recalls NHTSA"]
+        B1["Ler nhtsa_recalls CSV\n(CSV file input)"] --> B2["Ordenar recalls\n(Sort rows:\nmake, model, year)"]
+    end
+
+    A2 --> M["Juntar specs e recalls\n(Merge join: LEFT OUTER JOIN\nmake, model_prefix, year =\nmake, model, year)"]
+    B2 --> M
+
+    M --> C["Limpar campos duplicados\n(Select values:\nRemover make_1, model_1, year_1)"]
+    C --> D["Tratar recalls nulos\n(If field value is null:\nnhtsa_recalls_count -> 0)"]
+    D --> E["Add const 100\n(Add constants:\nconst_100 = 100)"]
+    E --> F["Calcular metricas fiabilidade\n(Calculator:\nrecalls_por_hp, recalls_por_100hp)"]
+    F --> G["Exportar dataset consolidado CSV\n(Text file output:\ndata/processed/bmw_m_performance_fiabilidade.csv)"]
+
+    classDef specs fill:#eef6ff,stroke:#3366cc,stroke-width:1px;
+    classDef recalls fill:#fff3cd,stroke:#ffbb00,stroke-width:1px;
+    classDef join fill:#d4edda,stroke:#28a745,stroke-width:1px;
+    classDef process fill:#f8f9fa,stroke:#6c757d,stroke-width:1px;
+
+    class A1,A2 specs;
+    class B1,B2 recalls;
+    class M join;
+    class C,D,E,F,G process;
+```
+
+1. **Ramo Superior (Especificações):** Ingestão de `specs_limpas.csv` (`CSV file input` com *Lazy Conversion* desativada) seguido de ordenação multi-chave (`Sort rows` por `make ASC`, `model_prefix ASC`, `year ASC`).
+2. **Ramo Inferior (Recalls NHTSA):** Ingestão de `nhtsa_recalls.csv` seguido de ordenação multi-chave (`Sort rows` por `make ASC`, `model ASC`, `year ASC`).
+3. **Junção Ordenada (`Merge join`):** Realização de um `LEFT OUTER JOIN` garantindo a preservação integral dos registos mecânicos, utilizando a chave composta `(make, model_prefix, year) = (make, model, year)`.
+4. **Limpeza de Metadados (`Select values`):** Remoção das colunas redundantes geradas na junção (`make_1`, `model_1`, `year_1`).
+5. **Imputação de Valores Ausentes (`If field value is null`):** Substituição de valores nulos em `nhtsa_recalls_count` por `0`, refletindo ausência de registo de campanhas de recall.
+6. **Cálculo de Indicadores de Fiabilidade:**
+   - Injeção de constante (`Add constants`): `const_100 = 100` (Number).
+   - Cálculos analíticos (`Calculator`):
+     - Rácio base de recalls por unidade de potência: `recalls_por_hp = nhtsa_recalls_count / engine_hp`
+     - Métrica normalizada de fiabilidade: `recalls_por_100hp = recalls_por_hp * const_100`
+7. **Persistência Final (`Text file output`):** Exportação do dataset analítico consolidado para `data/processed/bmw_m_performance_fiabilidade.csv` (28 registos, formato delimitado por vírgula com cabeçalho UTF-8).
+
+### 9.2. Tabela Detalhada de Decisões Técnicas (T3)
+
+| Step no Kettle | Tipo de Operador | Configuração Técnica Aplicada | Justificação Académica (critérios de avaliação e integridade) |
+| :--- | :--- | :--- | :--- |
+| **Ler specs_limpas CSV** | `CSV file input` (`CsvInput`) | • Ficheiro: `data/processed/specs_limpas.csv`<br>• Encoding: `UTF-8`, Separador: `,`, Header: `Y`<br>• **Lazy conversion:** `N` (desativada) | **Prevenção de Incompatibilidade de Tipos:** A desativação de lazy conversion força a conversão imediata para os tipos Java em memória (evitando representação em byte array), garantindo que comparações binárias nas ordenações e junções operem com total fiabilidade de tipos. |
+| **Ordenar specs** | `Sort rows` (`SortRows`) | • Campos: `make` (ASC), `model_prefix` (ASC), `year` (ASC) | **Requisito Algorítmico do Merge Join:** O operador de junção `Merge Join` no Pentaho PDI exige ordenação idêntica prévia em ambas as streams. A chave composta garante determinismo na junção. |
+| **Ler nhtsa_recalls CSV** | `CSV file input` (`CsvInput`) | • Ficheiro: `data/processed/nhtsa_recalls.csv`<br>• Encoding: `UTF-8`, Separador: `,`, Header: `Y`<br>• Lazy conversion: `N` | **Consumo de Fonte Externa Higienizada:** Ingestão dos registos processados em T2 com chaves e contagens oficiais de recalls. |
+| **Ordenar recalls** | `Sort rows` (`SortRows`) | • Campos: `make` (ASC), `model` (ASC), `year` (ASC) | **Alinhamento de Stream:** Ordenação espelhada do ramo inferior para satisfazer a pré-condição do `Merge Join`. |
+| **Juntar specs e recalls** | `Merge join` (`MergeJoin`) | • **Tipo de Junção:** `LEFT OUTER`<br>• **Step 1:** `Ordenar specs`<br>• **Step 2:** `Ordenar recalls`<br>• **Chaves 1:** `make`, `model_prefix`, `year`<br>• **Chaves 2:** `make`, `model`, `year` | **Preservação Integral do Catálogo Mecânico:** A adoção de `LEFT OUTER JOIN` (em detrimento de `INNER JOIN`) garante que nenhum modelo de especificações é descartado caso não possua registos de recalls na base externa da NHTSA, preservando a totalidade dos 28 veículos. |
+| **Limpar campos duplicados** | `Select values` (`SelectValues`) | • Separador *Remove*:<br>  - `make_1`<br>  - `model_1`<br>  - `year_1` | **Higienização Estrutural de Metadados:** O Pentaho PDI adiciona automaticamente o sufixo `_1` aos campos colidentes originários do segundo ramo da junção. A remoção explícita evita ambiguidades relacionais e reduz a redundância tabular. |
+| **Tratar recalls nulos** | `If field value is null` (`IfNull`) | • Campo: `nhtsa_recalls_count`<br>• Valor de substituição: `0` | **Imputação Semântica de Ausência de Eventos:** Quando um modelo não possui recalls registados na NHTSA, a junção `LEFT OUTER` atribui `null`. A conversão de `null` para `0` reflete fidedignamente que o veículo possui zero campanhas de recolha ativas, viabilizando cálculos matemáticos sem erros. |
+| **Add const 100** | `Add constants` (`Constant`) | • Nome: `const_100`<br>• Tipo: `Number`<br>• Valor: `100` | **Injeção de Escala Numérica:** O operador `Calculator` não admite literais constantes em linha nos operandos de cálculo. A injeção da constante `100` permite escalar o rácio de fiabilidade para uma base compreensível por 100 cavalos de potência. |
+| **Calcular metricas fiabilidade** | `Calculator` (`Calculator`) | • `recalls_por_hp = nhtsa_recalls_count / engine_hp` (Cálculo `A / B`)<br>• `recalls_por_100hp = recalls_por_hp * const_100` (Cálculo `A * B`) | **Engenharia de Indicadores Analíticos:** Computação de métricas normalizadas de fiabilidade mecânica. A normalização por potência ($\text{recalls por 100 hp}$) permite comparar modelos de diferentes potências e anos sob uma métrica comum e justa. |
+| **Exportar dataset consolidado CSV** | `Text file output` (`TextFileOutput`) | • Ficheiro: `data/processed/bmw_m_performance_fiabilidade.csv`<br>• Encoding: `UTF-8`, Delimitador: `,`<br>• Header: `Y` | **Materialização do Artefacto Final:** Armazenamento da base de dados tabular enriquecida com os 28 modelos e 19 atributos analíticos, servindo de fonte definitiva para carga relacional em PostgreSQL (T4) e exportações multiformato (T5). |
+
+### 9.3. Excertos Técnicos de Configuração e Regras de Negócio da Transformação T3
+
+1. **Configuração da Junção Ordenada (`Juntar specs e recalls` — `Merge join`):**
+   - **Join Type:** `LEFT OUTER`
+   - **First Step (Stream Esquerda):** `Ordenar specs`
+   - **Second Step (Stream Direita):** `Ordenar recalls`
+   - **Keys First Step:** `make`, `model_prefix`, `year`
+   - **Keys Second Step:** `make`, `model`, `year`
+
+2. **Remoção de Colunas Sufixadas (`Limpar campos duplicados` — `Select values`):**
+   - **Campos removidos:** `make_1`, `model_1`, `year_1` (redundâncias geradas pelo step de merge).
+
+3. **Imputação de Nulos em Métricas (`Tratar recalls nulos` — `If field value is null`):**
+   - **Campo selecionado:** `nhtsa_recalls_count`
+   - **Value when null:** `0` (interpretação de inexistência de campanhas de recall).
+
+4. **Fórmulas Aritméticas de Fiabilidade (`Calcular metricas fiabilidade` — `Calculator` com constante `const_100`):**
+   - `recalls_por_hp = nhtsa_recalls_count / engine_hp` (Operação: `A / B`)
+   - `recalls_por_100hp = recalls_por_hp * const_100` (Operação: `A * B`)
+
+### 9.4. Dicionário de Dados do Artefacto Consolidado (`bmw_m_performance_fiabilidade.csv`)
+
+| Campo | Tipo Kettle | Descrição Semântica | Exemplo |
+| :--- | :--- | :--- | :--- |
+| `make` | `String` | Marca automóvel padronizada | `BMW` |
+| `model` | `String` | Designação comercial limpa do modelo | `M2 F87` |
+| `year` | `Integer` | Ano de produção / homologação | `2016` |
+| `engine_hp` | `Integer` | Potência máxima do motor em cavalos | `370` |
+| `weight_kg` | `Integer` | Peso do veículo em ordem de marcha (kg) | `1495` |
+| `zero_to_sixty_mph` | `Number` | Tempo de aceleração 0–60 mph (segundos) | `4.3` |
+| `engine_cc` | `Integer` | Cilindrada volumétrica do motor ($cm^3$) | `2979` |
+| `price_usd` | `Integer` | Preço de comercialização base (USD) | `52000` |
+| `versao` | `String` | Versão de alto rendimento identificada ou `Base` | `Base` |
+| `model_prefix` | `String` | Código identificador da gama M | `M2` |
+| `peso_ton` | `Number` | Peso convertido em toneladas | `1.495` |
+| `litros` | `Number` | Cilindrada convertida em litros | `2.979` |
+| `hp_por_tonelada` | `Number` | Potência específica por peso ($\text{hp/ton}$) | `247.49` |
+| `hp_por_litro` | `Number` | Rendimento volumétrico específico ($\text{hp/litro}$) | `124.20` |
+| `series` | `String` | Série comercial obtida via lookup | `Série 2 M` |
+| `body_type` | `String` | Tipo de carroçaria associado | `Coupé` |
+| `nhtsa_recalls_count` | `Integer` | Número oficial de campanhas de recall (NHTSA) | `1` |
+| `recalls_por_hp` | `Number` | Rácio de recalls por cavalo de potência | `0.0027` |
+| `recalls_por_100hp` | `Number` | Índice de fiabilidade normalizado por 100 hp | `0.27` |
+
+### 9.5. Registo de Execução e Validação Experimental
+
+A transformação `T3_consolidate_metrics.ktr` foi executada em ambiente Pentaho Spoon (PDI 10.2) com validação completa:
+
+| Indicador de Execução | Valor Medido | Observações e Conformidade |
+| :--- | :---: | :--- |
+| **Registos lidos na stream de especificações** | **28** | Ingestão integral de `data/processed/specs_limpas.csv`. |
+| **Registos lidos na stream de recalls** | **28** | Ingestão integral de `data/processed/nhtsa_recalls.csv`. |
+| **Registos processados no Merge Join** | **28** | Correspondência exata em todas as chaves compostas sem descartes. |
+| **Registos exportados (`bmw_m_performance_fiabilidade.csv`)** | **28** | Materialização integral do dataset analítico tabular consolidado. |
+| **Taxa de erro na execução** | **0%** | Todos os 10 steps concluídos com sucesso e visto verde (`Status = Finished`). |
+| **Tempo de Execução** | **~0.5s** | Execução rápida em memória sem latência de rede. |
+| **Integridade dos Rácios Calculados** | **100%** | Valores válidos calculados para todos os modelos sem divisão por zero. |
+
+### 9.6. Mapeamento de Artefactos Visuais para a Secção 4.3 do Relatório
+
+Os 6 artefactos visuais consolidados para integração na **Secção 4.3 (Transformação T3_consolidate_metrics)** encontram-se disponíveis em `docs/diagramas/` (e em `prints/`):
+
+| Ficheiro Alvo | Elemento no Spoon | Descrição do Conteúdo a Integrar no Relatório |
+| :--- | :--- | :--- |
+| `T3_pipeline_completo.png` | Canvas Global | Canvas global no Spoon com os dois ramos concorrentes, a junção central e visto verde em todos os 10 steps. |
+| `T3_metricas_execucao.png` | Execution Results | Painel Step Metrics comprovando a leitura das duas fontes, junção de 28 tuplos e gravação sem erros (~0.5s). |
+| `T3_config_merge_join.png` | Dialog: *Juntar specs e recalls* | Configuração do Merge Join exibindo a modalidade LEFT OUTER JOIN e as chaves de correspondência de ambos os passos. |
+| `T3_config_select_values.png` | Dialog: *Limpar campos duplicados* | Configuração da remoção das colunas duplicadas da stream da direita (`make_1`, `model_1`, `year_1`). |
+| `T3_config_calculator_metricas.png` | Dialog: *Calcular metricas fiabilidade* | Configuração das operações de divisão e multiplicação no Calculator. |
+| `T3_preview_dados_finais.png` | Preview Data | Pré-visualização da grelha de dados consolidada com todos os atributos mecânicos, identificadores de série e rácios calculados. |
+
+
 
 
 

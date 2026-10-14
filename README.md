@@ -25,12 +25,13 @@ isi-tp1-performance-fiabilidade/
 ├── data/
 │   ├── raw/                 # Dados originais em bruto (specs.csv, series_lookup.csv)
 │   ├── staging/             # Quarentena e dados intermédios (rejeitados_specs.csv)
-│   ├── processed/           # Datasets canónicos limpos e validados (specs_limpas.csv, nhtsa_recalls.csv)
+│   ├── processed/           # Datasets canónicos limpos e validados (specs_limpas.csv, nhtsa_recalls.csv, bmw_m_performance_fiabilidade.csv)
 │   └── export/              # Exportações finais consolidadas (CSV, JSON, SQL)
 ├── kettle/
 │   ├── transformations/     # Ficheiros de transformação Kettle (.ktr)
 │   │   ├── T1_extract_specs.ktr
-│   │   └── T2_extract_nhtsa.ktr
+│   │   ├── T2_extract_nhtsa.ktr
+│   │   └── T3_consolidate_metrics.ktr
 │   └── jobs/                # Jobs de orquestração (.kjb)
 ├── docs/
 │   ├── decisoes_etl.md      # Caderno formal de decisões técnicas e arquitetura
@@ -176,9 +177,76 @@ flowchart LR
 
 ---
 
+### 4.3. Transformação T3: Consolidação e Métricas Finais (`T3_consolidate_metrics.ktr`)
+
+A Transformação T3 consolida os dados de especificações técnicas (`specs_limpas.csv`) com o histórico de fiabilidade e segurança rodoviária da NHTSA (`nhtsa_recalls.csv`). Esta etapa calcula indicadores analíticos combinados e gera o artefacto tabular final do projeto.
+
+#### Arquitetura do Pipeline ETL
+O fluxo é composto por 10 steps organizados em 2 ramos concorrentes e um tronco de consolidação:
+
+```mermaid
+flowchart TD
+    subgraph RAMO_SPECS["Ramo Superior: Especificações"]
+        A1["Ler specs_limpas CSV\n(Lazy conversion = N)"] --> A2["Ordenar specs\n(make, model_prefix, year)"]
+    end
+
+    subgraph RAMO_RECALLS["Ramo Inferior: Recalls NHTSA"]
+        B1["Ler nhtsa_recalls CSV"] --> B2["Ordenar recalls\n(make, model, year)"]
+    end
+
+    A2 --> M["Juntar specs e recalls\n(Merge join: LEFT OUTER)"]
+    B2 --> M
+
+    M --> C["Limpar campos duplicados\n(Remover make_1, model_1, year_1)"]
+    C --> D["Tratar recalls nulos\n(null -> 0)"]
+    D --> E["Add const 100\n(const_100 = 100)"]
+    E --> F["Calcular metricas fiabilidade\n(Calculator)"]
+    F --> G["Exportar dataset consolidado CSV\n(bmw_m_performance_fiabilidade.csv)"]
+```
+
+1. **Ramo Superior (Especificações):** Ingestão de `specs_limpas.csv` (`CSV file input` com *Lazy Conversion* desativada) seguido de ordenação multi-chave (`Sort rows` por `make ASC`, `model_prefix ASC`, `year ASC`).
+2. **Ramo Inferior (Recalls NHTSA):** Ingestão de `nhtsa_recalls.csv` seguido de ordenação multi-chave (`Sort rows` por `make ASC`, `model ASC`, `year ASC`).
+3. **Junção Ordenada (`Merge join`):** Realização de um `LEFT OUTER JOIN` garantindo a preservação integral dos registos mecânicos, utilizando a chave composta `(make, model_prefix, year) = (make, model, year)`.
+4. **Limpeza de Metadados (`Select values`):** Remoção das colunas redundantes geradas na junção (`make_1`, `model_1`, `year_1`).
+5. **Imputação de Valores Ausentes (`If field value is null`):** Substituição de valores nulos em `nhtsa_recalls_count` por `0`, refletindo ausência de registo de campanhas de recall.
+6. **Cálculo de Indicadores de Fiabilidade:**
+   - Injeção de constante (`Add constants`): `const_100 = 100` (Number).
+   - Cálculos analíticos (`Calculator`):
+     - Rácio base de recalls por unidade de potência: `recalls_por_hp = nhtsa_recalls_count / engine_hp`
+     - Métrica normalizada de fiabilidade: `recalls_por_100hp = recalls_por_hp * const_100`
+7. **Persistência Final (`Text file output`):** Exportação do dataset analítico consolidado para `data/processed/bmw_m_performance_fiabilidade.csv` (28 registos, formato delimitado por vírgula com cabeçalho UTF-8).
+
+#### Fragmentos Técnicos e Regras de Negócio de T3
+
+1. **Configuração da Junção Ordenada (`Merge join`):**
+   - **Tipo de Junção:** `LEFT OUTER`
+   - **Stream 1 (`Ordenar specs`):** `make`, `model_prefix`, `year`
+   - **Stream 2 (`Ordenar recalls`):** `make`, `model`, `year`
+
+2. **Limpeza de Metadados e Sufixos (`Select values`):**
+   - **Campos removidos:** `make_1`, `model_1`, `year_1` (redundâncias geradas pelo step de merge).
+
+3. **Imputação Semântica de Nulos (`If field value is null`):**
+   - **Campo:** `nhtsa_recalls_count`
+   - **Valor de substituição:** `0` (interpretação de inexistência de campanhas de recall).
+
+4. **Fórmulas de Engenharia e Fiabilidade (`Calculator` com `const_100 = 100`):**
+   - `recalls_por_hp = nhtsa_recalls_count / engine_hp` (Cálculo `A / B`)
+   - `recalls_por_100hp = recalls_por_hp * const_100` (Cálculo `A * B`)
+
+#### Artefactos Visuais de T3 (em `prints/` e `docs/diagramas/`)
+- `T3_pipeline_completo.png` — Canvas global no Spoon com os dois ramos concorrentes, a junção central e visto verde em todos os 10 steps.
+- `T3_metricas_execucao.png` — Painel Step Metrics comprovando a leitura das duas fontes, junção de 28 tuplos e gravação sem erros (~0.5s).
+- `T3_config_merge_join.png` — Configuração do Merge Join exibindo a modalidade LEFT OUTER JOIN e as chaves de correspondência de ambos os passos.
+- `T3_config_select_values.png` — Configuração da remoção das colunas duplicadas da stream da direita (`make_1`, `model_1`, `year_1`).
+- `T3_config_calculator_metricas.png` — Configuração das operações de divisão e multiplicação no Calculator.
+- `T3_preview_dados_finais.png` — Pré-visualização da grelha de dados consolidada com todos os atributos mecânicos, identificadores de série e rácios calculados.
+
+---
+
 ## 5. Próximas Etapas
 
-- **T3 (`T3_transform_merge.ktr`):** Cruzamento dos dados de especificações (`specs_limpas.csv`) com os dados de fiabilidade (`nhtsa_recalls.csv`), cálculo do indicador de fiabilidade ponderada e agregações estatísticas por série.
 - **T4 (`T4_load_postgres.ktr`):** Carga do modelo dimensional em PostgreSQL (`dim_modelo`, `fact_performance`, `fact_fiabilidade`).
 - **T5 (`T5_exports.ktr`):** Exportação dos dados consolidados em múltiplos formatos (CSV, JSON, SQL).
 - **J_main (`J_main.kjb`):** Orquestração completa do pipeline com controlo de erros, logs e notificações.
+

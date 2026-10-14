@@ -70,12 +70,45 @@ var url_recalls = "https://api.nhtsa.gov/recalls/recallsByVehicle?make="
 
 ---
 
-### 2.3. Transformação T3: `T3_transform_merge.ktr` (Fusão e Agregações)
-| Ficheiro Alvo | Elemento no Spoon | Descrição do Conteúdo a Capturar |
+### 4.3. Transformação T3: Consolidação e Métricas Finais (`T3_consolidate_metrics.ktr`)
+
+A Transformação T3 consolida os dados de especificações técnicas (`specs_limpas.csv`) com o histórico de fiabilidade e segurança rodoviária da NHTSA (`nhtsa_recalls.csv`). Esta etapa calcula indicadores analíticos combinados e gera o artefacto tabular final do projeto.
+
+#### 1. Arquitetura do Pipeline ETL
+O fluxo é composto por 10 steps organizados em 2 ramos concorrentes e um tronco de consolidação:
+1. **Ramo Superior (Especificações):** Ingestão de `specs_limpas.csv` (`CSV file input` com *Lazy Conversion* desativada) seguido de ordenação multi-chave (`Sort rows` por `make ASC`, `model_prefix ASC`, `year ASC`).
+2. **Ramo Inferior (Recalls NHTSA):** Ingestão de `nhtsa_recalls.csv` seguido de ordenação multi-chave (`Sort rows` por `make ASC`, `model ASC`, `year ASC`).
+3. **Junção Ordenada (`Merge join`):** Realização de um `LEFT OUTER JOIN` garantindo a preservação integral dos registos mecânicos, utilizando a chave composta `(make, model_prefix, year) = (make, model, year)`.
+4. **Limpeza de Metadados (`Select values`):** Remoção das colunas redundantes geradas na junção (`make_1`, `model_1`, `year_1`).
+5. **Imputação de Valores Ausentes (`If field value is null`):** Substituição de valores nulos em `nhtsa_recalls_count` por `0`, refletindo ausência de registo de campanhas de recall.
+6. **Cálculo de Indicadores de Fiabilidade:**
+   - Injeção de constante (`Add constants`): `const_100 = 100` (Number).
+   - Cálculos analíticos (`Calculator`):
+     - Rácio base de recalls por unidade de potência: `recalls_por_hp = nhtsa_recalls_count / engine_hp`
+     - Métrica normalizada de fiabilidade: `recalls_por_100hp = recalls_por_hp * const_100`
+7. **Persistência Final (`Text file output`):** Exportação do dataset analítico consolidado para `data/processed/bmw_m_performance_fiabilidade.csv` (28 registos, formato delimitado por vírgula com cabeçalho UTF-8).
+
+#### 2. Mapeamento de Artefactos de Imagem (`prints/` e `docs/diagramas/`)
+
+| Ficheiro Alvo | Elemento no Spoon | Descrição do Conteúdo a Integrar no Relatório |
 | :--- | :--- | :--- |
-| `13_T3_canvas_completo.png` | Canvas Global | Cruzamento dos fluxos de performance e fiabilidade com cálculo de rankings. |
-| `14_T3_step_merge_join.png` | Dialog: *Merge Join* | Janela do operador de junção (ordenado por marca, modelo e ano). |
-| `15_T3_step_group_by.png` | Dialog: *Group by* | Configuração de agregações por série/geração (médias e somatórios). |
+| `T3_pipeline_completo.png` | Canvas Global | Canvas global no Spoon com os dois ramos concorrentes, a junção central e visto verde em todos os 10 steps. |
+| `T3_metricas_execucao.png` | Execution Results | Painel Step Metrics comprovando a leitura das duas fontes, junção de 28 tuplos e gravação sem erros (~0.5s). |
+| `T3_config_merge_join.png` | Dialog: *Juntar specs e recalls* | Configuração do Merge Join exibindo a modalidade LEFT OUTER JOIN e as chaves de correspondência de ambos os passos. |
+| `T3_config_select_values.png` | Dialog: *Limpar campos duplicados* | Configuração da remoção das colunas duplicadas da stream da direita (`make_1`, `model_1`, `year_1`). |
+| `T3_config_calculator_metricas.png` | Dialog: *Calcular metricas fiabilidade* | Configuração das operações de divisão e multiplicação no Calculator. |
+| `T3_preview_dados_finais.png` | Preview Data | Pré-visualização da grelha de dados consolidada com todos os atributos mecânicos, identificadores de série e rácios calculados. |
+
+#### 3. Excertos Técnicos de Configuração e Cálculos
+
+- **Configuração da Junção Ordenada (`Merge join`):**
+  - Tipo: `LEFT OUTER`
+  - Chaves Stream 1 (`Ordenar specs`): `make`, `model_prefix`, `year`
+  - Chaves Stream 2 (`Ordenar recalls`): `make`, `model`, `year`
+- **Fórmulas Aritméticas de Fiabilidade (`Calculator` com `const_100 = 100`):**
+  - `recalls_por_hp = nhtsa_recalls_count / engine_hp` (Divisão `A / B`)
+  - `recalls_por_100hp = recalls_por_hp * const_100` (Multiplicação `A * B`)
+
 
 ---
 
