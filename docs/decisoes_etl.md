@@ -75,6 +75,41 @@ A tabela abaixo documenta formalmente a justificação académica, o operador do
 | **Mapear series e body_type** | `Stream lookup` (`StreamLookup`) | • **Lookup step:** `Ler series_lookup CSV`<br>• **Chave de junção:** `model_prefix` = `model_prefix`<br>• **Campos recuperados:** `series` (ex.: `"Série 3 M"`) e `body_type` (ex.: `"Sedan/Touring"`, `"Coupé"`) | **Cruzamento Dimensional e Enriquecimento:** Implementa o conceito de *Lookup* exigido no enunciado de ISI. Desacopla a informação mecânica pura dos metadados de segmentação de mercado e tipologia de carroçaria, preparando os dados para posterior agregação por série e tipo na transformação `T3_transform_merge`. |
 | **Exportar specs_limpas CSV** | `Text file output` (`TextFileOutput`) | • **Ficheiro de destino:** `data/processed/specs_limpas.csv`<br>• **Separator:** `,`<br>• **Enclosure:** `"`<br>• **Encoding:** `UTF-8`<br>• Inclusão de cabeçalho | **Materialização do Dataset Processado e Higienizado:** Persistência em disco dos 28 registos validados e enriquecidos, disponibilizando a fonte canónica limpa em `data/processed/` para consumo pelas transformações subsequentes (`T2_extract_nhtsa` e `T3_transform_merge`). |
 
+### 3.1. Fragmentos Técnicos e Regras de Negócio da Transformação T1 (`T1_extract_specs`)
+
+1. **Normalização de Strings (`Limpar Strings` — `String operations`):**
+   - **Campos:** `make`, `model`
+   - **Operações:** `Trim type = both`, `Lower/Upper = upper` para o campo `make`; `Trim type = both` para `model`.
+
+2. **Expressões Regulares (`Regex evaluation`):**
+   - Step **`Extrair versao via Regex`** (Campo avaliado: `model` $\rightarrow$ Campo destino: `versao`):
+     ```regex
+     .*?\b(Competition|CSL|GTS|CS|Touring)\b.*
+     ```
+   - Step **`Extrair prefixo modelo`** (Campo avaliado: `model` $\rightarrow$ Campo destino: `model_prefix`):
+     ```regex
+     ^(M\d)\b.*
+     ```
+
+3. **Imputação Semântica de Nulos (`Tratar nulos` — `If field value is null`):**
+   - **Campo:** `versao`
+   - **Valor de substituição:** `'Base'` (garante completude dimensional e ausência de NULLs em relatórios).
+
+4. **Controlo de Qualidade e Desvio (`Validar peso` — `Filter rows`):**
+   - **Condição booleana:** `weight_kg IS NOT NULL`
+   - **Saída TRUE (Válidos):** Segue para `Extrair prefixo modelo` (fluxo analítico principal).
+   - **Saída FALSE (Inválidos):** Desvia para `Rejeitados` (`data/staging/rejeitados_specs.csv`) como quarentena de integridade.
+
+5. **Fórmulas de Engenharia (`Calculator` com constante `const_1000 = 1000` via `Add constants`):**
+   - `peso_ton = weight_kg / const_1000` (Cálculo `A / B`)
+   - `litros = engine_cc / const_1000` (Cálculo `A / B`)
+   - `hp_por_tonelada = engine_hp / peso_ton` (Cálculo `A / B`)
+   - `hp_por_litro = engine_hp / litros` (Cálculo `A / B`)
+
+6. **Cruzamento em Memória (`Mapear series e body_type` — `Stream lookup`):**
+   - **Chave de junção:** `model_prefix` = `model_prefix` (cruzando com `data/raw/series_lookup.csv`)
+   - **Campos recuperados:** `series` (ex.: `"Série 3 M"`), `body_type` (ex.: `"Sedan/Touring"`, `"Coupé"`).
+
 ---
 
 ## 4. Matriz de Rastreabilidade com os Critérios de Avaliação (Enunciado ISI)
@@ -128,4 +163,113 @@ A transformação `T1_extract_specs.ktr` foi executada em ambiente Pentaho Spoon
 | **Taxa de erro na execução** | **0%** | Todos os steps terminaram com sucesso e visto verde (`Status = Finished`). |
 | **Cobertura de Lookups** | **100%** | Todos os 28 modelos válidos obtiveram correspondência exata para `series` e `body_type`. |
 | **Integridade dos Cálculos Derivados** | **100%** | Sem ocorrência de divisão por zero ou campos calculados nulos. |
+
+---
+
+## 7. Mapeamento de Artefactos Visuais para a Secção 4.1 do Relatório
+
+Os 10 artefactos gráficos consolidados e padronizados para integração na **Secção 4.1 (Transformação T1_extract_specs)** do relatório técnico encontram-se disponíveis em `docs/diagramas/` (e em `prints/`):
+
+1. **`T1_pipeline_completo.png`**: Diagrama panorâmico da transformação no Spoon com todos os steps finalizados com visto verde e a bifurcação de quarentena.
+2. **`T1_metricas_execucao.png`**: Tabela *Step Metrics* comprovando o processamento de 29 registos de entrada, 1 rejeitado no filtro de peso e 28 exportados sem erros.
+3. **`T1_preview_dados_finais.png`**: Pré-visualização da grelha de dados limpos gerados em `data/processed/specs_limpas.csv`.
+4. **`T1_config_string_operations.png`**: Configuração das operações sintáticas de padronização (`trim` e `upper`).
+5. **`T1_config_regex_versao.png`**: Configuração da expressão regular léxica para extração do grupo de versões (`Competition`, `CSL`, `GTS`, `CS`, `Touring`).
+6. **`T1_config_tratar_nulos.png`**: Configuração da imputação controlada do valor `'Base'` nos casos em que a versão é nula.
+7. **`T1_config_filter_peso.png`**: Configuração do filtro de qualidade condicional (`weight_kg IS NOT NULL`) com redirecionamento de registos inválidos.
+8. **`T1_config_regex_prefixo.png`**: Configuração da expressão regular de extração do prefixo de gama (`^(M\d)\b.*`).
+9. **`T1_config_calculator_metricas.png`**: Configuração das fórmulas aritméticas do `Calculator` para cálculo de rácios com suporte do divisor `const_1000`.
+10. **`T1_config_stream_lookup.png`**: Configuração do cruzamento em streaming com `series_lookup.csv` para enriquecimento de carroçaria e série.
+
+---
+
+# Caderno de Decisões Técnicas de ETL — Transformação T2 (`T2_extract_nhtsa.ktr`)
+
+- **Unidade Curricular:** Integração de Sistemas de Informação (ISI) — Licenciatura em Engenharia de Sistemas Informáticos (LESI), IPCA/EST
+- **Projeto:** ISI TP1 — Análise de Performance e Fiabilidade Automóvel
+- **Artefacto:** `kettle/transformations/T2_extract_nhtsa.ktr`
+- **Áreas de Dados Envolvidas:** `data/processed/specs_limpas.csv` (origem) $\rightarrow$ API REST NHTSA $\rightarrow$ `data/processed/nhtsa_recalls.csv` (destino)
+
+---
+
+## 8. Transformação T2: Ingestão de Dados de Recalls (API NHTSA) — Secção 4.2 do Relatório
+
+A Transformação T2 é responsável pela extração dinâmica de métricas de segurança rodoviária através do consumo da API pública da NHTSA (*National Highway Traffic Safety Administration*). O objetivo desta etapa consiste em obter o histórico oficial de campanhas de recall por modelo e ano de fabrico, enriquecendo o dataset de especificações mecânicas.
+
+### 8.1. Arquitetura do Pipeline ETL
+O fluxo é composto por 9 etapas sequenciais:
+
+```mermaid
+flowchart TD
+    A["Ler specs_limpas CSV\n(CSV file input:\ndata/processed/specs_limpas.csv)"] --> B["Selecionar marca modelo ano\n(Select values:\nmodel_prefix -> model)"]
+    B --> C["Ordenar por modelo e ano\n(Sort rows:\nmake, model, year)"]
+    C --> D["Deduplicar para API\n(Unique rows)"]
+    D --> E["Construir URL NHTSA\n(Modified Java Script Value:\nencodeURIComponent)"]
+    E --> F["Chamar API Recalls\n(REST client: HTTP GET)"]
+    F --> G["Extrair recalls JSON\n(JSON input: $.Count)"]
+    G --> H["Selecionar campos recalls\n(Select values)"]
+    H --> I["Exportar recalls CSV\n(Text file output:\ndata/processed/nhtsa_recalls.csv)"]
+
+    classDef step fill:#eef6ff,stroke:#3366cc,stroke-width:1px;
+    classDef api fill:#fff3cd,stroke:#ffbb00,stroke-width:1px;
+    class A,B,C,D,E,G,H,I step;
+    class F api;
+```
+
+1. **Leitura e Seleção:** Ingestão de `specs_limpas.csv` e isolamento dos atributos-chave de pesquisa (`make`, `model_prefix` renomeado para `model`, `year`).
+2. **Ordenação e Deduplicação:** Ordenação composta (`Sort rows`) seguida de remoção de redundâncias (`Unique rows`), assegurando que apenas combinações únicas de veículo/ano realizam pedidos HTTP, mitigando sobrecarga na rede e latência desnecessária.
+3. **Construção Dinâmica do Endpoint:** Script JavaScript encarregue de codificar parâmetros e estruturar o URL REST.
+4. **Consumo da API Externa:** Invocação HTTP GET via `REST client`.
+5. **Parsing e Extração JSON:** Desserialização do payload JSON através de JSONPath (`$.Count`) no step `JSON input`.
+6. **Projeção e Persistência:** Filtragem das variáveis auxiliares (`Select values`) e exportação do artefacto limpo `nhtsa_recalls.csv`.
+
+### 8.2. Tabela Detalhada de Decisões Técnicas (T2)
+
+| Step no Kettle | Tipo de Operador | Configuração Técnica Aplicada | Justificação Académica (critérios de avaliação e integridade) |
+| :--- | :--- | :--- | :--- |
+| **Ler specs_limpas CSV** | `CSV file input` (`CsvInput`) | • Origem: `data/processed/specs_limpas.csv`<br>• Encoding: `UTF-8`, Delimitador: `,`<br>• Header: `Y` | **Consumo de Dados Processados:** Leitura da base canónica validada em T1, assegurando que apenas registos limpos e sem valores nulos críticos avançam para consumo externo. |
+| **Selecionar marca modelo ano** | `Select values` (`SelectValues`) | • Campos: `make`, `model_prefix` renomeado para `model`, `year`<br>• Remoção de atributos não necessários à API | **Projeção Estrita e Normalização de Chave:** A API da NHTSA cataloga modelos pela designação genérica da série (ex.: "M3", "M5"), pelo que o mapeamento de `model_prefix` para `model` é mandatório para correspondência exata. |
+| **Ordenar por modelo e ano** | `Sort rows` (`SortRows`) | • Campos: `make`, `model`, `year` (Ascendente) | **Pré-requisito de Deduplicação:** Ordenação determinística em memória/disco exigida pelo operador `Unique rows`. |
+| **Deduplicar para API** | `Unique rows` (`UniqueRows`) | • Chave: `make`, `model`, `year` | **Otimização de Tráfego e Respeito a Rate Limits:** Impede múltiplos pedidos HTTP para a mesma gama/ano, reduzindo o número de invocações à API de 28 para o conjunto estritamente único. |
+| **Construir URL NHTSA** | `Modified Java Script Value` (`ScriptValueMod`) | • Código JS com `encodeURIComponent()` para parâmetros de query string | **Sanitização de Requisições Web:** Codificação segura de caracteres especiais e espaços nos parâmetros `make`, `model` e `year`, prevenindo erros HTTP 400. |
+| **Chamar API Recalls** | `REST client` (`Rest`) | • Método: `GET`<br>• URL extraído do campo dinâmico `url_recalls`<br>• Campo de saída: `resposta_json` | **Integração com Web Services REST (Fase 1):** Cumprimento do critério de consumo de APIs públicas externas em formato RESTful com resposta JSON. |
+| **Extrair recalls JSON** | `JSON input` (`JsonInput`) | • Source: campo `resposta_json`<br>• JSONPath: `$.Count`<br>• Campo de saída: `nhtsa_recalls_count` (`Integer`) | **Desserialização JSON com JSONPath:** Extração pontual da contagem oficial de recalls sem overhead de deserialização de listas desnecessárias. |
+| **Selecionar campos recalls** | `Select values` (`SelectValues`) | • Campos mantidos: `make`, `model`, `year`, `nhtsa_recalls_count`<br>• Descarte de `url_recalls` e `resposta_json` | **Limpeza da Área de Staging:** Eliminação de payloads brutos em memória, persistindo unicamente as chaves e a métrica de fiabilidade obtida. |
+| **Exportar recalls CSV** | `Text file output` (`TextFileOutput`) | • Destino: `data/processed/nhtsa_recalls.csv`<br>• Encoding: `UTF-8`, Delimitador: `,`<br>• Header: `Y` | **Materialização Dimensional:** Produção do artefacto de segurança rodoviária preparado para junção relacional na transformação `T3_transform_merge`. |
+
+### 8.3. Mapeamento de Artefactos de Imagem (`prints/` e `docs/diagramas/`)
+
+| Ficheiro Alvo | Elemento no Spoon | Descrição do Conteúdo a Integrar no Relatório |
+| :--- | :--- | :--- |
+| `T2_pipeline_completo.png` | Canvas Global | Visão geral do pipeline com os 9 steps e status de execução com sucesso. |
+| `T2_metricas_execucao.png` | Execution Results | Métricas de execução (28 tuplos processados, 0 erros, ~5.3s). |
+| `T2_config_javascript_url.png` | Dialog: *Construir URL NHTSA* | Configuração do step de concatenação e encoding do URL via JavaScript. |
+| `T2_config_rest_client.png` | Dialog: *Chamar API Recalls* | Configuração da chamada REST (HTTP GET dinâmico). |
+| `T2_config_json_input.png` | Dialog: *Extrair recalls JSON* | Configuração do separador Fields com a expressão JSONPath `$.Count`. |
+| `T2_preview_dados_finais.png` | Preview Data | Grelha de validação dos dados finais com os recalls extraídos (`nhtsa_recalls.csv`). |
+
+### 8.4. Excertos Técnicos de Configuração e Código da Transformação T2
+
+1. **Construção Dinâmica de URL (`Construir URL NHTSA` — `Modified Java Script Value`):**
+```javascript
+var url_recalls = "https://api.nhtsa.gov/recalls/recallsByVehicle?make=" 
+                  + encodeURIComponent(make) 
+                  + "&model=" 
+                  + encodeURIComponent(model) 
+                  + "&modelYear=" 
+                  + year;
+```
+
+2. **Invocação de Web Service REST (`Chamar API Recalls` — `REST client`):**
+   - **HTTP Method:** `GET`
+   - **URL Field Name:** `url_recalls`
+   - **Result Field Name:** `resposta_json`
+
+3. **Parsing e Desserialização JSON (`Extrair recalls JSON` — `JSON input`):**
+   - **Source Field:** `resposta_json` (definido num campo da stream)
+   - **Expressão JSONPath:** `$.Count`
+   - **Campo de destino:** `nhtsa_recalls_count` (`Integer`)
+
+
+
 

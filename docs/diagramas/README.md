@@ -12,37 +12,61 @@ Este diretório armazena todos os diagramas de arquitetura e capturas de ecrã (
 
 ---
 
-## 2. Lista de Capturas Obrigatórias por Módulo
+## 2. Lista de Capturas Consolidadas por Módulo (Secção 4 do Relatório)
 
-### 2.1. Transformação T1: `T1_extract_specs.ktr` (Especificações Automóveis)
-Estes prints comprovam as decisões técnicas, a validação de dados e as expressões regulares explicadas em [`docs/decisoes_etl.md`](file:///C:/Users/gfcco/OneDrive/Documentos/isi-tp1-performance-fiabilidade/docs/decisoes_etl.md):
+### 4.1. Transformação T1: `T1_extract_specs.ktr` (Especificações Automóveis)
+Artefactos gráficos consolidados e padronizados para integração na **Secção 4.1 do Relatório**:
 
-| Ficheiro Alvo | Elemento no Spoon | Descrição do Conteúdo a Capturar |
+| Ficheiro Alvo | Elemento no Spoon | Descrição do Conteúdo a Integrar no Relatório |
 | :--- | :--- | :--- |
-| `01_T1_canvas_completo.png` | Canvas Global | Visão panorâmica de todos os steps e hops da transformação com vistos verdes de execução bem-sucedida. |
-| `T1_step01_csv_input.png` | Dialog: *Ler specs CSV* | Janela de configuração com o delimitador `,`, encoding `UTF-8` e a grelha de campos e tipos (`Number` em `zero_to_sixty_mph`). |
-| `T1_step02_string_operations.png` | Dialog: *Limpar Strings* | Janela de operações sobre strings (`trim both` e `upper` em `make`; `trim both` em `model`). |
-| `T1_step03_regex_versao.png` | Dialog: *Extrair versao via Regex* | Janela com a expressão regular `.*?\b(Competition\|CSL\|GTS\|CS\|Touring)\b.*` e o campo de captura `versao`. |
-| `T1_step04_null_if.png` | Dialog: *Tratar nulos* | Janela do step `If field value is null` configurando a imputação de `'Base'` no campo `versao`. |
-| `T1_step05_filter_peso.png` | Dialog: *Validar peso* | Condição `weight_kg IS NOT NULL` e o direcionamento dos registos inválidos para o step de rejeitados. |
-| `T1_step05_rejeitados.png` | Dialog: *Rejeitados* | Configuração do ficheiro de quarentena `data/staging/rejeitados_specs.csv` (`Text file output`). |
-| `T1_step06_regex_prefixo.png` | Dialog: *Extrair prefixo modelo* | Expressão regular `^(M\d)\b.*` para isolar o prefixo do modelo para o lookup. |
-| `T1_step07_sort_unique.png` | Dialog: *Remover duplicados* | Encadeamento de `Sort rows` com `Unique rows` baseado na chave composta `make, model, year`. |
-| `T1_step08_add_constants.png` | Dialog: *Add constants* | Configuração do step `Add constants` com o campo `const_1000` (Type: `Number`, Value: `1000`) para viabilizar a divisão no `Calculator`. |
-| `T1_step09_calculator.png` | Dialog: *Calculator* | Grelha de fórmulas do `Calculator` com os cálculos encadeados de `peso_ton`, `litros`, `hp_por_tonelada` e `hp_por_litro` consumindo `const_1000`. |
-| `T1_step10_lookup_input.png` | Dialog: *Ler series_lookup CSV* | Leitura do ficheiro `data/raw/series_lookup.csv` via `CSV file input` com campos `model_prefix`, `series`, `body_type`. |
-| `T1_step10_stream_lookup.png` | Dialog: *Mapear series e body_type* | Junção por `model_prefix` com `series_lookup.csv` e campos recuperados (`series`, `body_type`). |
-| `T1_step11_export_output.png` | Dialog: *Exportar specs_limpas CSV* | Configuração do destino final `data/processed/specs_limpas.csv` (UTF-8, delimitador vírgula, com cabeçalho). |
-| `T1_execucao_metrics.png` | Execution Results | Painel inferior após execução no Spoon: *Step Metrics* comprovando 29 registos lidos, 1 rejeitado no filtro de peso e 28 exportados para o CSV final. |
+| `T1_pipeline_completo.png` | Canvas Global | Visão panorâmica de todo o fluxo sequencial com vistos verdes em todos os steps e desvio de quarentena. |
+| `T1_metricas_execucao.png` | Execution Results | Painel *Step Metrics* comprovando 29 registos lidos, 1 rejeitado no filtro de peso e 28 exportados com 0 erros. |
+| `T1_preview_dados_finais.png` | Preview Data | Grelha de dados finais com os 28 modelos, colunas calculadas e metadados de séries e carroçarias preenchidos. |
+| `T1_config_string_operations.png` | Dialog: *Limpar Strings* | Operações sintáticas (`trim both` e `upper` em `make`; `trim both` em `model`). |
+| `T1_config_regex_versao.png` | Dialog: *Extrair versao via Regex* | Expressão regular `.*?\b(Competition\|CSL\|GTS\|CS\|Touring)\b.*` e campo de captura `versao`. |
+| `T1_config_tratar_nulos.png` | Dialog: *Tratar nulos* | Imputação semântica de `'Base'` no campo `versao` quando nulo. |
+| `T1_config_filter_peso.png` | Dialog: *Validar peso* | Condição `weight_kg IS NOT NULL` com desvio dos registos inválidos para quarentena (`Rejeitados`). |
+| `T1_config_regex_prefixo.png` | Dialog: *Extrair prefixo modelo* | Expressão regular `^(M\d)\b.*` para isolar a chave de junção `model_prefix`. |
+| `T1_config_calculator_metricas.png` | Dialog: *Calculator* | Cálculos encadeados de `peso_ton`, `litros`, `hp_por_tonelada` e `hp_por_litro` via `const_1000`. |
+| `T1_config_stream_lookup.png` | Dialog: *Mapear series e body_type* | Junção por `model_prefix` com `series_lookup.csv` trazendo `series` e `body_type`. |
 
 ---
 
-### 2.2. Transformação T2: `T2_extract_nhtsa.ktr` (API REST Recalls & Complaints)
-| Ficheiro Alvo | Elemento no Spoon | Descrição do Conteúdo a Capturar |
+### 4.2. Transformação T2: Ingestão de Dados de Recalls (API NHTSA)
+
+A Transformação T2 é responsável pela extração dinâmica de métricas de segurança rodoviária através do consumo da API pública da NHTSA (*National Highway Traffic Safety Administration*). O objetivo desta etapa consiste em obter o histórico oficial de campanhas de recall por modelo e ano de fabrico, enriquecendo o dataset de especificações mecânicas.
+
+#### 1. Arquitetura do Pipeline ETL
+O fluxo é composto por 9 etapas sequenciais:
+1. **Leitura e Seleção:** Ingestão de `specs_limpas.csv` e isolamento dos atributos-chave de pesquisa (`make`, `model_prefix` renomeado para `model`, `year`).
+2. **Ordenação e Deduplicação:** Ordenação composta (`Sort rows`) seguida de remoção de redundâncias (`Unique rows`), assegurando que apenas combinações únicas de veículo/ano realizam pedidos HTTP, mitigando sobrecarga na rede e latência desnecessária.
+3. **Construção Dinâmica do Endpoint:** Script JavaScript encarregue de codificar parâmetros e estruturar o URL REST.
+4. **Consumo da API Externa:** Invocação HTTP GET via `REST client`.
+5. **Parsing e Extração JSON:** Desserialização do payload JSON através de JSONPath (`$.Count`) no step `JSON input`.
+6. **Projeção e Persistência:** Filtragem das variáveis auxiliares (`Select values`) e exportação do artefacto limpo `nhtsa_recalls.csv`.
+
+#### 2. Mapeamento de Artefactos de Imagem (`prints/` e `docs/diagramas/`)
+
+| Ficheiro Alvo | Elemento no Spoon | Descrição do Conteúdo a Integrar no Relatório |
 | :--- | :--- | :--- |
-| `10_T2_canvas_completo.png` | Canvas Global | Fluxo completo de consulta à API externa da NHTSA (recalls e queixas). |
-| `11_T2_step_rest_client.png` | Dialog: *REST Client* | Configuração do endpoint HTTP/REST, método GET e tratamento de códigos de resposta. |
-| `12_T2_step_json_input.png` | Dialog: *JSON input* | Mapeamento dos campos e expressões *JSONPath* para contagem de problemas. |
+| `T2_pipeline_completo.png` | Canvas Global | Visão geral do pipeline com os 9 steps e status de execução com sucesso. |
+| `T2_metricas_execucao.png` | Execution Results | Métricas de execução (28 tuplos processados, 0 erros, ~5.3s). |
+| `T2_config_javascript_url.png` | Dialog: *Construir URL NHTSA* | Configuração do step de concatenação e encoding do URL via JavaScript. |
+| `T2_config_rest_client.png` | Dialog: *Chamar API Recalls* | Configuração da chamada REST (HTTP GET dinâmico). |
+| `T2_config_json_input.png` | Dialog: *Extrair recalls JSON* | Configuração do separador Fields com a expressão JSONPath `$.Count`. |
+| `T2_preview_dados_finais.png` | Preview Data | Grelha de validação dos dados finais com os recalls extraídos (`nhtsa_recalls.csv`). |
+
+#### 3. Excertos Técnicos de Configuração e Código
+
+- **Script JavaScript de Construção do URL (`Construir URL NHTSA`):**
+```javascript
+var url_recalls = "https://api.nhtsa.gov/recalls/recallsByVehicle?make=" 
+                  + encodeURIComponent(make) 
+                  + "&model=" 
+                  + encodeURIComponent(model) 
+                  + "&modelYear=" 
+                  + year;
+```
 
 ---
 

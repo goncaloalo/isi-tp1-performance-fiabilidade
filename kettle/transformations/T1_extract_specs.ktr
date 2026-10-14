@@ -1219,7 +1219,7 @@
     </remotesteps>
     <GUI>
       <xloc>1440</xloc>
-      <yloc>160</yloc>
+      <yloc>176</yloc>
       <draw>Y</draw>
     </GUI>
   </step>

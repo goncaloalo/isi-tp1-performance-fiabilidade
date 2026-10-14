@@ -1,19 +1,184 @@
-# ISI TP1 - Análise de Performance e Fiabilidade Automóvel
+# ISI TP1 — Análise de Performance e Fiabilidade Automóvel
 
-Repositório do Trabalho Prático 1 da unidade curricular de Integração de Sistemas de Informação (ISI).
+- **Unidade Curricular:** Integração de Sistemas de Informação (ISI)
+- **Curso:** Licenciatura em Engenharia de Sistemas Informáticos (LESI) — IPCA / EST
+- **Ano Letivo:** 2026/27
+- **Tema:** Pipeline ETL para Análise Comparativa de Performance Mecânica e Fiabilidade Rodoviária (Gama BMW M)
 
-## Estrutura do Projeto
+---
 
-- **`data/`**
-  - `raw/`: Dados em bruto (fontes originais).
-  - `staging/`: Dados temporários e intermédios do processo de ETL.
-  - `export/`: Dados finais processados e exportados.
-- **`kettle/`**
-  - `jobs/`: Jobs do Pentaho Data Integration (Kettle) (`.kjb`).
-  - `transformations/`: Transformações do Pentaho Data Integration (`.ktr`).
-- **`sql/`**
-  - Scripts de criação de esquemas, tabelas e consultas SQL.
-- **`docs/`**
-  - `diagramas/`: Diagramas de arquitetura, fluxos e esquemas de dados.
-- **`logs/`**
-  - Registos de execução de processos de ETL.
+## 1. Enquadramento e Objetivos
+
+Este projeto implementa uma pipeline robusta de **Extract, Transform, Load (ETL)** desenvolvida no **Pentaho Data Integration (PDI / Kettle)**. O sistema recolhe, higieniza, valida e cruza dados heterogéneos de especificações técnicas automóveis com dados oficiais de segurança rodoviária obtidos via API REST externa, preparando os artefactos para persistência relacional em PostgreSQL e exportações analíticas multiformato.
+
+O ciclo de vida dos dados cumpre as três fases obrigatórias do enunciado de ISI:
+- **Fase 1 (Recolha e Ingestão — "E"):** Ingestão de datasets locais em formato CSV e consumo dinâmico de Web Services REST com respostas estruturadas em JSON.
+- **Fase 2 (Processamento e Limpeza — "T"):** Normalização sintática, validação de regras de integridade, segregação de registos inválidos para quarentena (*Dead-Letter Queue*), aplicação de Expressões Regulares (ER) para extração semântica, imputação controlada de valores nulos, deduplicação determinística, junções (*Stream Lookups*) e computação de rácios mecânicos derivados.
+- **Fase 3 (Persistência e Exportação — "L"):** Exportação em múltiplos formatos canónicos (CSV, JSON, SQL/relacional).
+
+---
+
+## 2. Estrutura do Repositório
+
+```text
+isi-tp1-performance-fiabilidade/
+├── data/
+│   ├── raw/                 # Dados originais em bruto (specs.csv, series_lookup.csv)
+│   ├── staging/             # Quarentena e dados intermédios (rejeitados_specs.csv)
+│   ├── processed/           # Datasets canónicos limpos e validados (specs_limpas.csv, nhtsa_recalls.csv)
+│   └── export/              # Exportações finais consolidadas (CSV, JSON, SQL)
+├── kettle/
+│   ├── transformations/     # Ficheiros de transformação Kettle (.ktr)
+│   │   ├── T1_extract_specs.ktr
+│   │   └── T2_extract_nhtsa.ktr
+│   └── jobs/                # Jobs de orquestração (.kjb)
+├── docs/
+│   ├── decisoes_etl.md      # Caderno formal de decisões técnicas e arquitetura
+│   └── diagramas/           # Checklist e inventário de capturas para o relatório final
+├── prints/                  # Capturas de ecrã consolidadas do Pentaho Spoon
+├── sql/                     # Esquemas DDL, tabelas de dimensão/facto e views analíticas
+└── logs/                    # Ficheiros de registo e auditoria de execução ETL
+```
+
+---
+
+## 4. Transformações Desenvolvidas (Secção 4 do Relatório)
+
+### 4.1. Transformação T1: Extração e Limpeza de Especificações (`T1_extract_specs.ktr`)
+
+A Transformação T1 é responsável pela leitura, validação, limpeza e enriquecimento das especificações mecânicas da gama desportiva BMW M.
+
+#### Arquitetura do Fluxo
+O pipeline processa 29 registos originais, isola 1 tuplo com dados omissos para quarentena e materializa 28 modelos enriquecidos em `data/processed/specs_limpas.csv`.
+
+```mermaid
+flowchart LR
+    A["Ler specs CSV"] --> B["Limpar Strings"]
+    B --> C["Extrair versao via Regex"]
+    C --> D["Tratar nulos"]
+    D --> E{"Validar peso"}
+    E -- "Inválidos" --> REJ["Rejeitados (Quarentena)"]
+    E -- "Válidos" --> F["Extrair prefixo modelo"]
+    F --> G["Ordenar & Deduplicar"]
+    G --> H["Add constants (1000)"]
+    H --> I["Calculator (Métricas)"]
+    LOOKUP["series_lookup.csv"] --> J["Mapear series & body_type"]
+    I --> J
+    J --> K["Exportar specs_limpas CSV"]
+```
+
+#### Fragmentos Técnicos e Regras de Negócio de T1
+
+1. **Normalização de Strings (`Limpar Strings` — `String operations`):**
+   - **Campos:** `make`, `model`
+   - **Operações:** `Trim type = both`, `Lower/Upper = upper` para o campo `make`; `Trim type = both` para `model`.
+
+2. **Expressões Regulares (`Regex evaluation`):**
+   - **Extração de Edições/Versões de Alto Rendimento (`Extrair versao via Regex`):**
+     - Campo avaliado: `model` $\rightarrow$ Campo de captura criado: `versao`
+     ```regex
+     .*?\b(Competition|CSL|GTS|CS|Touring)\b.*
+     ```
+   - **Normalização da Chave de Série (`Extrair prefixo modelo`):**
+     - Campo avaliado: `model` $\rightarrow$ Campo de captura criado: `model_prefix` (ex.: `"M2"`, `"M3"`, `"M4"`, `"M5"`, `"M6"`, `"M8"`)
+     ```regex
+     ^(M\d)\b.*
+     ```
+
+3. **Imputação Semântica de Nulos (`Tratar nulos` — `If field value is null`):**
+   - **Campo:** `versao`
+   - **Valor de substituição:** `'Base'` (separa a extração léxica da regra de negócio, prevenindo nulos em dimensões relacionais).
+
+4. **Controlo de Qualidade e Isolamento de Rejeitados (`Validar peso` — `Filter rows`):**
+   - **Condição booleana:** `weight_kg IS NOT NULL`
+   - **Saída TRUE (Válidos):** Segue para `Extrair prefixo modelo` (fluxo analítico principal).
+   - **Saída FALSE (Inválidos):** Desvia para `Rejeitados` (`data/staging/rejeitados_specs.csv`) como *Dead-Letter Queue* (isolou o modelo `M3 E92 GTS`).
+
+5. **Fórmulas de Engenharia Automóvel (`Calculator` via constante `const_1000 = 1000`):**
+   - `peso_ton = weight_kg / const_1000` (Cálculo `A / B`)
+   - `litros = engine_cc / const_1000` (Cálculo `A / B`)
+   - `hp_por_tonelada = engine_hp / peso_ton` (Cálculo `A / B`)
+   - `hp_por_litro = engine_hp / litros` (Cálculo `A / B`)
+
+6. **Cruzamento em Memória (`Mapear series e body_type` — `Stream lookup`):**
+   - **Chave de junção:** `model_prefix` = `model_prefix` (cruzamento com `data/raw/series_lookup.csv`)
+   - **Campos recuperados:** `series` (ex.: `"Série 3 M"`), `body_type` (ex.: `"Sedan/Touring"`, `"Coupé"`).
+
+#### Artefactos Visuais de T1 (em `prints/` e `docs/diagramas/`)
+- `T1_pipeline_completo.png` — Canvas panorâmico no Spoon com vistos verdes em todos os 12 steps.
+- `T1_metricas_execucao.png` — Painel Step Metrics (29 lidos $\rightarrow$ 1 rejeitado $\rightarrow$ 28 exportados).
+- `T1_preview_dados_finais.png` — Grelha tabular do resultado limpo (`specs_limpas.csv`).
+- `T1_config_string_operations.png` — Diálogo do step *Limpar Strings*.
+- `T1_config_regex_versao.png` — Diálogo do step *Extrair versao via Regex*.
+- `T1_config_tratar_nulos.png` — Diálogo do step *Tratar nulos*.
+- `T1_config_filter_peso.png` — Diálogo do step *Validar peso*.
+- `T1_config_regex_prefixo.png` — Diálogo do step *Extrair prefixo modelo*.
+- `T1_config_calculator_metricas.png` — Diálogo do step *Calculator*.
+- `T1_config_stream_lookup.png` — Diálogo do step *Mapear series e body_type*.
+
+---
+
+### 4.2. Transformação T2: Ingestão de Dados de Recalls via API NHTSA (`T2_extract_nhtsa.ktr`)
+
+A Transformação T2 é responsável pela extração dinâmica de métricas de fiabilidade e segurança rodoviária através do consumo da API pública RESTful da **NHTSA** (*National Highway Traffic Safety Administration*).
+
+#### Arquitetura do Pipeline ETL
+O fluxo é composto por 9 etapas sequenciais:
+
+```mermaid
+flowchart LR
+    A["Ler specs_limpas CSV"] --> B["Selecionar marca modelo ano"]
+    B --> C["Ordenar por modelo e ano"]
+    C --> D["Deduplicar para API"]
+    D --> E["Construir URL NHTSA (JS)"]
+    E --> F["Chamar API Recalls (REST GET)"]
+    F --> G["Extrair recalls JSON (JSONPath)"]
+    G --> H["Selecionar campos recalls"]
+    H --> I["Exportar recalls CSV"]
+```
+
+1. **Leitura e Seleção:** Ingestão de `specs_limpas.csv` e isolamento dos atributos-chave de pesquisa (`make`, `model_prefix` renomeado para `model`, `year`).
+2. **Ordenação e Deduplicação:** Ordenação composta (`Sort rows`) seguida de remoção de redundâncias (`Unique rows`), assegurando que apenas combinações estritamente únicas de gama/ano realizam pedidos HTTP, mitigando latência e respeitando *rate limits*.
+3. **Construção Dinâmica do Endpoint:** Script JavaScript encarregue de codificar parâmetros e estruturar o URL REST.
+4. **Consumo da API Externa:** Invocação HTTP GET via `REST client`.
+5. **Parsing e Extração JSON:** Desserialização do payload JSON através de JSONPath (`$.Count`) no step `JSON input`.
+6. **Projeção e Persistência:** Filtragem das variáveis auxiliares (`Select values`) e exportação do artefacto limpo `data/processed/nhtsa_recalls.csv`.
+
+#### Fragmentos Técnicos e Regras de Negócio de T2
+
+1. **Construção Dinâmica de URL (`Construir URL NHTSA` — `Modified Java Script Value`):**
+   ```javascript
+   var url_recalls = "https://api.nhtsa.gov/recalls/recallsByVehicle?make=" 
+                     + encodeURIComponent(make) 
+                     + "&model=" 
+                     + encodeURIComponent(model) 
+                     + "&modelYear=" 
+                     + year;
+   ```
+
+2. **Invocação de Web Service REST (`Chamar API Recalls` — `REST client`):**
+   - **Método HTTP:** `GET`
+   - **Campo do URL:** `url_recalls`
+   - **Campo de resposta:** `resposta_json`
+
+3. **Parsing e Desserialização JSON (`Extrair recalls JSON` — `JSON input`):**
+   - **Fonte:** Campo de stream `resposta_json`
+   - **Expressão JSONPath:** `$.Count`
+   - **Campo extraído:** `nhtsa_recalls_count` (`Integer`)
+
+#### Artefactos Visuais de T2 (em `prints/` e `docs/diagramas/`)
+- `T2_pipeline_completo.png` — Canvas do pipeline com os 9 steps e status de execução com sucesso.
+- `T2_metricas_execucao.png` — Métricas de execução (28 tuplos processados, 0 erros, tempo de resposta ~5.3s).
+- `T2_config_javascript_url.png` — Configuração do step de concatenação e encoding do URL.
+- `T2_config_rest_client.png` — Configuração da chamada REST (HTTP GET dinâmico).
+- `T2_config_json_input.png` — Configuração do separador Fields com a expressão JSONPath `$.Count`.
+- `T2_preview_dados_finais.png` — Grelha de validação dos dados finais com os recalls extraídos (`nhtsa_recalls.csv`).
+
+---
+
+## 5. Próximas Etapas
+
+- **T3 (`T3_transform_merge.ktr`):** Cruzamento dos dados de especificações (`specs_limpas.csv`) com os dados de fiabilidade (`nhtsa_recalls.csv`), cálculo do indicador de fiabilidade ponderada e agregações estatísticas por série.
+- **T4 (`T4_load_postgres.ktr`):** Carga do modelo dimensional em PostgreSQL (`dim_modelo`, `fact_performance`, `fact_fiabilidade`).
+- **T5 (`T5_exports.ktr`):** Exportação dos dados consolidados em múltiplos formatos (CSV, JSON, SQL).
+- **J_main (`J_main.kjb`):** Orquestração completa do pipeline com controlo de erros, logs e notificações.
