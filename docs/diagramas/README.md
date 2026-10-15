@@ -112,11 +112,19 @@ O fluxo é composto por 10 steps organizados em 2 ramos concorrentes e um tronco
 
 ---
 
-### 2.4. Transformação T4: `T4_load_postgres.ktr` (Carga Relacional)
-| Ficheiro Alvo | Elemento no Spoon | Descrição do Conteúdo a Capturar |
+### 4.4. Transformação T4: Carga Relacional em PostgreSQL (`T4_load_postgres.ktr`)
+
+A Transformação T4 concretiza o carregamento da base de dados relacional em PostgreSQL (`carros_etl`), garantindo a integridade dos dados e a persistência do modelo físico final.
+
+#### Mapeamento de Artefactos de Imagem (`prints/` e `docs/diagramas/`)
+
+| Ficheiro Alvo | Elemento no Spoon / pgAdmin | Descrição do Conteúdo a Integrar no Relatório |
 | :--- | :--- | :--- |
-| `16_T4_canvas_completo.png` | Canvas Global | Carga nas tabelas `dim_modelo`, `fact_performance` e `fact_fiabilidade`. |
-| `17_T4_step_table_output.png` | Dialog: *Insert / Update* | Mapeamento de chaves e campos para a base de dados PostgreSQL. |
+| `T4_pipeline_completo.png` | Canvas Global | Visão global do fluxo de carga com os passos *Ler dataset consolidado CSV* e *Carregar PostgreSQL* com visto verde de sucesso. |
+| `T4_config_csv_input.png` | Dialog: *Ler dataset consolidado CSV* | Configuração do step `CsvInput` com caminho relativo `${Internal.Entry.Current.Directory}/../../data/processed/bmw_m_performance_fiabilidade.csv` e tipagem explícita. |
+| `T4_ddl_create_table.png` | Editor SQL / pgAdmin | Execução do DDL (`sql/01_schema.sql`) no PostgreSQL com criação de chave primária, chave candidata única e tipos adequados. |
+| `T4_metricas_execucao.png` | Execution Results | Painel *Step Metrics* comprovando a leitura de 28 registos no CSV e inserção de 28 linhas na tabela PostgreSQL com 0 erros. |
+| `T4_dados_postgres.png` | Data Output / pgAdmin | Consulta SQL de validação (`SELECT * FROM bmw_m_performance_fiabilidade`) evidenciando os 28 registos persistidos com timestamp `loaded_at`. |
 
 ---
 

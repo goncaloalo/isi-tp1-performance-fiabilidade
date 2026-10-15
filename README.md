@@ -31,13 +31,15 @@ isi-tp1-performance-fiabilidade/
 │   ├── transformations/     # Ficheiros de transformação Kettle (.ktr)
 │   │   ├── T1_extract_specs.ktr
 │   │   ├── T2_extract_nhtsa.ktr
-│   │   └── T3_consolidate_metrics.ktr
+│   │   ├── T3_consolidate_metrics.ktr
+│   │   └── T4_load_postgres.ktr
 │   └── jobs/                # Jobs de orquestração (.kjb)
 ├── docs/
 │   ├── decisoes_etl.md      # Caderno formal de decisões técnicas e arquitetura
 │   └── diagramas/           # Checklist e inventário de capturas para o relatório final
 ├── prints/                  # Capturas de ecrã consolidadas do Pentaho Spoon
 ├── sql/                     # Esquemas DDL, tabelas de dimensão/facto e views analíticas
+│   └── 01_schema.sql        # DDL da tabela consolidada bmw_m_performance_fiabilidade
 └── logs/                    # Ficheiros de registo e auditoria de execução ETL
 ```
 
@@ -247,9 +249,60 @@ flowchart TD
 
 ---
 
+### 4.4. Transformação T4: Carga Relacional em PostgreSQL (`T4_load_postgres.ktr`)
+
+A Transformação T4 concretiza a **Fase 3 (Carregamento e Persistência)**, carregando os dados limpos e consolidados de performance mecânica e fiabilidade rodoviária na base de dados relacional **PostgreSQL** (`carros_etl`).
+
+#### Arquitetura do Fluxo
+O pipeline ingere o ficheiro consolidado `bmw_m_performance_fiabilidade.csv` de forma portável e persiste 28 tuplos na tabela `bmw_m_performance_fiabilidade`:
+
+```mermaid
+flowchart LR
+    A["Ler dataset consolidado CSV\n(CsvInput:\nbmw_m_performance_fiabilidade.csv)"] --> B["Carregar PostgreSQL\n(TableOutput:\nTruncate = Y, Batch = 1000)"]
+    
+    subgraph SGBD["PostgreSQL (carros_etl)"]
+        B -.-> TAB[("Tabela:\nbmw_m_performance_fiabilidade\n(28 registos)")]
+    end
+
+    classDef step fill:#eef6ff,stroke:#3366cc,stroke-width:1px;
+    classDef db fill:#e8f5e9,stroke:#2e7d32,stroke-width:1px;
+    class A,B step;
+    class TAB db;
+```
+
+#### Fragmentos Técnicos e Decisões de T4
+
+1. **Portabilidade e Higienização de Strings (`CsvInput`):**
+   - **Caminho Relativo:** `${Internal.Entry.Current.Directory}/../../data/processed/bmw_m_performance_fiabilidade.csv`.
+   - **Formatação de Strings:** `<length>-1</length>` e `<trim_type>both</trim_type>` para todos os atributos textuais, prevenindo padding e caracteres espúrios.
+   - **Tipificação Numérica:** Campos inteiros lidos como `Integer` e rácios decimais com precisão estrita e ponto decimal `.`.
+
+2. **Esquema Relacional DDL (`sql/01_schema.sql`):**
+   - Estrutura física composta por 20 colunas (chave primária `id SERIAL`, 18 atributos analíticos mapeados e carimbo de auditoria `loaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`).
+   - Restrição de integridade `CONSTRAINT uq_model_year UNIQUE (model, year)` impedindo duplicações semânticas.
+
+3. **Idempotência Determinística via TRUNCATE (`TableOutput`):**
+   - Ativação do parâmetro `<truncate>Y</truncate>` (Truncate table), que esvazia atomicamente a tabela de destino antes da inserção em lote (`commit = 1000`).
+   - Garante que reexecuções parciais ou repetidas da pipeline ETL decorrem sem falhas por colisão de chaves únicas ou inconsistências de dados residuais.
+
+4. **Mapeamento Explícito de 18 Atributos:**
+   - Inserção estrita dos 18 atributos analíticos, delegando no PostgreSQL a atribuição do `id` sequencial e do timestamp `loaded_at`.
+
+#### Artefactos Visuais de T4 (em `prints/` e `docs/diagramas/`)
+- `T4_pipeline_completo.png` — Canvas panorâmico no Spoon com os passos *Ler dataset consolidado CSV* e *Carregar PostgreSQL* com visto verde.
+- `T4_config_csv_input.png` — Diálogo do step `CsvInput` evidenciando o caminho relativo e a parametrização dos 18 campos.
+- `T4_ddl_create_table.png` — Execução do script DDL de criação da tabela no pgAdmin / editor SQL.
+- `T4_metricas_execucao.png` — Painel Step Metrics comprovando 28 linhas lidas e 28 linhas inseridas com 0 erros.
+- `T4_dados_postgres.png` — Visualização dos 28 registos carregados na tabela PostgreSQL via pgAdmin.
+
+---
+
 ## 5. Próximas Etapas
 
-- **T4 (`T4_load_postgres.ktr`):** Carga do modelo dimensional em PostgreSQL (`dim_modelo`, `fact_performance`, `fact_fiabilidade`).
-- **T5 (`T5_exports.ktr`):** Exportação dos dados consolidados em múltiplos formatos (CSV, JSON, SQL).
-- **J_main (`J_main.kjb`):** Orquestração completa do pipeline com controlo de erros, logs e notificações.
+- [x] **T1 (`T1_extract_specs.ktr`):** Extração, limpeza e métricas mecânicas (Concluída).
+- [x] **T2 (`T2_extract_nhtsa.ktr`):** Ingestão de recalls via API NHTSA (Concluída).
+- [x] **T3 (`T3_consolidate_metrics.ktr`):** Junção analítica e cálculo de fiabilidade (Concluída).
+- [x] **T4 (`T4_load_postgres.ktr`):** Carga relacional idempotente em PostgreSQL (Concluída).
+- [ ] **T5 (`T5_exports.ktr`):** Exportação dos dados consolidados em múltiplos formatos heterogéneos (CSV, JSON, XML/SQL).
+- [ ] **J_main (`J_main.kjb`):** Orquestração sequencial completa do pipeline com controlo de erros, logs e notificações por email.
 

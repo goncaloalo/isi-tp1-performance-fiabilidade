@@ -448,8 +448,114 @@ No fecho da Fase 2 do pipeline de ETL (abrangendo as transformações `T1_extrac
 - **Decisão:** O dataset final em `data/processed/bmw_m_performance_fiabilidade.csv` foi purificado para exportar estritamente **18 colunas**, descartando a constante transitória `const_100` e a métrica intermediária de suporte `recalls_por_hp`.
 - **Justificação:** A métrica analiticamente relevante para correlação com performance é o rácio normalizado por centena de cavalos (`recalls_por_100hp`), mantendo o esquema relacional final e o consumo analítico direto, limpo e sem redundância.
 
+---
 
+## 11. Decisões Técnicas da Transformação T4 (`T4_load_postgres.ktr`) — Fase 3: Carga Relacional
 
+- **Artefacto:** `kettle/transformations/T4_load_postgres.ktr`
+- **Áreas de Dados Envolvidas:** `data/processed/bmw_m_performance_fiabilidade.csv` $\rightarrow$ Base de Dados PostgreSQL (`carros_etl.public.bmw_m_performance_fiabilidade`)
+- **Ficheiro DDL de Suporte:** `sql/01_schema.sql`
 
+### 11.1. Enquadramento e Objetivo da Transformação
 
+A transformação **`T4_load_postgres.ktr`** inaugura a **Fase 3 (Carregamento e Persistência)** da pipeline ETL, assegurando a persistência estruturada dos 28 modelos consolidados no Sistema de Gestão de Bases de Dados Relacional (SGBD) **PostgreSQL**:
 
+1. **Ingestão Portável e Validação:** Consumo do artefacto limpo `data/processed/bmw_m_performance_fiabilidade.csv` com recurso à variável de contexto `${Internal.Entry.Current.Directory}`, garantindo independência do caminho físico da máquina anfitriã.
+2. **Higienização Terminal:** Aplicação de `<trim_type>both</trim_type>` e `<length>-1</length>` nos atributos de texto, eliminando qualquer espaçamento fixo residual antes do envio para a base de dados.
+3. **Idempotência de Execução via TRUNCATE:** Ativação da opção de truncagem da tabela (`<truncate>Y</truncate>`) no step `TableOutput`, assegurando que execuções sucessivas limpam os dados anteriores atomicamente, evitando duplicações e erros de violação de chave candidata única (`uq_model_year`).
+4. **Mapeamento Explícito de Atributos:** Correspondência inequívoca entre os 18 campos em fluxo e as colunas físicas da tabela relacional, delegando na base de dados a geração da chave primária surrogate (`id SERIAL`) e do carimbo temporal de auditoria (`loaded_at TIMESTAMP`).
+
+---
+
+### 11.2. Arquitetura do Fluxo de Dados (Pipeline T4)
+
+```mermaid
+flowchart LR
+    A["Ler dataset consolidado CSV\n(CsvInput:\nbmw_m_performance_fiabilidade.csv)"] --> B["Carregar PostgreSQL\n(TableOutput:\nTruncate = Y, Batch = 1000)"]
+    
+    subgraph SGBD["PostgreSQL (carros_etl)"]
+        B -.-> TAB[("Tabela:\nbmw_m_performance_fiabilidade\n(28 registos)")]
+    end
+
+    classDef step fill:#eef6ff,stroke:#3366cc,stroke-width:1px;
+    classDef db fill:#e8f5e9,stroke:#2e7d32,stroke-width:1px;
+    class A,B step;
+    class TAB db;
+```
+
+---
+
+### 11.3. Esquema DDL e Modelo Físico Relacional (`sql/01_schema.sql`)
+
+O esquema físico da tabela foi concebido para suportar tanto os atributos mecânicos originais como as métricas analíticas e de fiabilidade calculadas ao longo das transformações anteriores, garantindo integridade referencial e auditoria:
+
+```sql
+CREATE TABLE IF NOT EXISTS bmw_m_performance_fiabilidade (
+    id SERIAL PRIMARY KEY,
+    make VARCHAR(50) NOT NULL,
+    model VARCHAR(100) NOT NULL,
+    year INT NOT NULL,
+    engine_hp INT NOT NULL,
+    weight_kg INT NOT NULL,
+    zero_to_sixty_mph NUMERIC(4,2),
+    engine_cc INT NOT NULL,
+    price_usd INT,
+    versao VARCHAR(50) NOT NULL,
+    model_prefix VARCHAR(10) NOT NULL,
+    peso_ton NUMERIC(6,3) NOT NULL,
+    litros NUMERIC(5,2) NOT NULL,
+    hp_por_tonelada NUMERIC(6,2) NOT NULL,
+    hp_por_litro NUMERIC(6,2) NOT NULL,
+    series VARCHAR(50) NOT NULL,
+    body_type VARCHAR(50) NOT NULL,
+    nhtsa_recalls_count INT DEFAULT 0,
+    recalls_por_100hp NUMERIC(6,4) DEFAULT 0,
+    loaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_model_year UNIQUE (model, year)
+);
+```
+
+#### Propriedades Notáveis do Esquema:
+- **Chave Primária Surrogate (`id SERIAL`):** Identificador unívoco auto-incremental gerado pelo motor SGBD para simplificar referências e indexação relacional.
+- **Restrição de Chave Candidata Natural (`CONSTRAINT uq_model_year UNIQUE (model, year)`):** Impede a existência de duplicados da combinação de modelo e ano de fabrico no catálogo analítico.
+- **Tipificação Precisa (`NUMERIC`):** Os rácios calculados (`peso_ton`, `litros`, `hp_por_tonelada`, `hp_por_litro`, `recalls_por_100hp`) são mapeados para tipos decimais exatos (`NUMERIC`), prevenindo arredondamentos indevidos de vírgula flutuante.
+- **Rastreabilidade e Auditoria (`loaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`):** Regista automaticamente o momento exato em que cada tuplo foi inserido na base de dados pelo pipeline ETL.
+
+---
+
+### 11.4. Tabela Detalhada de Decisões Técnicas da Transformação T4
+
+| Step no Kettle | Tipo de Operador | Configuração Técnica Aplicada | Justificação Académica e Arquitetural |
+| :--- | :--- | :--- | :--- |
+| **Ler dataset consolidado CSV** | `CSV file input` (`CsvInput`) | • **Filename:** `${Internal.Entry.Current.Directory}/../../data/processed/bmw_m_performance_fiabilidade.csv`<br>• **Separator:** `,`<br>• **Enclosure:** `"`<br>• **Header:** `Y`<br>• **Lazy Conversion:** `Y`<br>• **Strings:** `<length>-1</length>`, `<trim_type>both</trim_type>` para `make`, `model`, `versao`, `model_prefix`, `series`, `body_type`<br>• **Campos Numéricos:** Tipagem estrita com decimal `.` | **Portabilidade e Higienização de Entrada:** O recurso à variável nativa de contexto `${Internal.Entry.Current.Directory}` garante portabilidade universal em qualquer sistema operacional ou pasta de trabalho. O comprimento dinâmico (`length = -1`) e o `trim_type = both` eliminam quaisquer espaços espúrios à esquerda ou direita, alimentando o PostgreSQL com dados estritamente limpos. |
+| **Carregar PostgreSQL** | `Table output` (`TableOutput`) | • **Connection:** `Postgres_Carros` (PostgreSQL Nativo JDBC, BD `carros_etl`)<br>• **Target schema:** `public`<br>• **Target table:** `bmw_m_performance_fiabilidade`<br>• **Truncate table:** `Y`<br>• **Use batch update:** `Y`<br>• **Commit size:** `1000`<br>• **Specify database fields:** `Y` (18 mapeamentos explícitos) | **Idempotência, Performance e Mapeamento Controlado:**<br>1. **Idempotência Determinística:** A ativação de `<truncate>Y</truncate>` executa um `TRUNCATE TABLE` prévio à inserção. Isto viabiliza que a pipeline seja reexecutada múltiplas vezes sem falhar por violação da restrição `uq_model_year (model, year)` e sem acumular registos duplicados.<br>2. **Desempenho em Lote (*Batch*):** O uso de `use_batch = Y` com `commit = 1000` envia todos os 28 tuplos num único bloco atómico de rede via JDBC, minimizando overhead de round-trips ao SGBD.<br>3. **Mapeamento Explícito:** Declarar os 18 campos exclui intencionalmente os campos `id` e `loaded_at`, permitindo que os valores por defeito definidos no DDL sejam aplicados automaticamente pelo PostgreSQL. |
+
+---
+
+### 11.5. Registo de Execução e Validação Experimental
+
+A transformação `T4_load_postgres.ktr` foi testada e validada em ambiente local contra uma instância PostgreSQL 16 (base de dados `carros_etl`):
+
+| Indicador de Execução | Valor Medido | Observações e Conformidade |
+| :--- | :---: | :--- |
+| **Registos lidos do CSV consolidado** | **28** | Leitura integral dos 28 modelos de `data/processed/bmw_m_performance_fiabilidade.csv`. |
+| **Registos inseridos na tabela PostgreSQL** | **28** | Inserção em batch bem-sucedida na tabela `bmw_m_performance_fiabilidade`. |
+| **Taxa de erro na execução** | **0%** | Conclusão limpa de ambos os steps (`Status = Finished`, vistos verdes). |
+| **Tempo de Execução medido** | **~0.2s - 0.4s** | Inserção quase instantânea em batch atómico local. |
+| **Validação da Chave Primária Surrogate (`id`)** | **1 a 28** | Sequência `SERIAL` populada sem falhas de numeração. |
+| **Validação da Auditoria (`loaded_at`)** | **100% preenchido** | Todos os tuplos registaram o timestamp da execução corrente. |
+| **Teste de Idempotência (Reexecução)** | **Aprovado** | Segunda e terceira execuções limpam a tabela via `TRUNCATE` e repovoam os 28 registos com sucesso e sem erros de chave duplicada. |
+
+---
+
+### 11.6. Mapeamento de Artefactos Visuais para a Secção 4.4 do Relatório
+
+Os 5 artefactos visuais consolidados para integração na **Secção 4.4 (Transformação T4_load_postgres)** encontram-se disponíveis em `docs/diagramas/` (e em `prints/`):
+
+| Ficheiro Alvo | Elemento no Spoon / pgAdmin | Descrição do Conteúdo a Integrar no Relatório |
+| :--- | :--- | :--- |
+| `T4_pipeline_completo.png` | Canvas Global | Visão panorâmica do fluxo Spoon com os 2 steps concluídos com sucesso e visto verde. |
+| `T4_config_csv_input.png` | Dialog: *Ler dataset consolidado CSV* | Configuração do step `CsvInput` com o caminho relativo `${Internal.Entry.Current.Directory}/../../data/processed/bmw_m_performance_fiabilidade.csv` e tipagem dos 18 campos. |
+| `T4_ddl_create_table.png` | Editor SQL / pgAdmin | Execução do script DDL (`sql/01_schema.sql`) no PostgreSQL com criação de chave primária, chave candidata única e tipos adequados. |
+| `T4_metricas_execucao.png` | Execution Results | Painel *Step Metrics* comprovando a leitura de 28 registos no CSV e escrita de 28 tuplos no PostgreSQL com 0 erros. |
+| `T4_dados_postgres.png` | Data Output / pgAdmin | Consulta SQL de validação (`SELECT * FROM bmw_m_performance_fiabilidade`) evidenciando os 28 registos persistidos com timestamp `loaded_at`. |
