@@ -655,3 +655,132 @@ Os 4 artefactos visuais consolidados para integração na **Secção 4.5 (Transf
 | `T5_metricas_execucao.png` | Execution Results | Painel *Step Metrics* comprovando a leitura de 28 tuplos do PostgreSQL, duplicação para 56 linhas emitidas, gravação de 28 registos no JSON e agregação de 6 séries no XML com zero erros (`E=0`). |
 | `T5_preview_json_xml.png` | Visualização de Ficheiros | Pré-visualização dos artefactos gerados em `data/output/`: catálogo estruturado em JSON e relatório hierárquico com elementos `<serie_analise>` em XML. |
 
+---
+
+## 13. Decisões Técnicas do Job de Orquestração Global (`J_main.kjb`) — Fase 5: Orquestração e Controlo de Execução
+
+- **Artefacto:** `kettle/jobs/J_main.kjb`
+- **Áreas de Dados Envolvidas:** Coordenação integral de todo o ciclo de vida dos dados (`data/raw/` $\rightarrow$ `data/staging/` $\rightarrow$ `data/processed/` $\rightarrow$ PostgreSQL `carros_etl` $\rightarrow$ `data/output/`)
+- **Papel na Arquitetura:** Orquestrador Master do pipeline ETL, garantindo a execução sequencial determinística de todas as transformações (T1 a T5), tratamento unificado de erros (*Fail-Fast*) e portabilidade transversal de ambiente.
+
+---
+
+### 13.1. Enquadramento e Objetivo da Orquestração
+
+O desenvolvimento de processos de ETL modulares exige uma camada de orquestração global capaz de coordenar as dependências entre estágios, gerir o ciclo de vida dos dados e reagir a anomalias em tempo de execução:
+
+1. **Automação Ponta a Ponta (*Zero-Touch*):** Substitui a execução manual e desfasada das transformações por um único ponto de entrada (`START`), garantindo que a sequência de operações é rigorosamente respeitada sem intervenção humana.
+2. **Encadeamento Determinístico de Dependências:**
+   - **T1 (`T1_extract_specs.ktr`):** Ingestão, validação, limpeza sintática, deduplicação, cálculo de rácios de performance e segregação de quarentena $\rightarrow$ produz `specs_limpas.csv`.
+   - **T2 (`T2_extract_nhtsa.ktr`):** Leitura de `specs_limpas.csv`, consulta à API REST da NHTSA e estruturação do histórico de recalls $\rightarrow$ produz `nhtsa_recalls.csv`.
+   - **T3 (`T3_consolidate_metrics.ktr`):** Junção ordenada (`Merge Join`), tratamento de nulos e computação do índice de fiabilidade normalizado $\rightarrow$ produz `bmw_m_performance_fiabilidade.csv`.
+   - **T4 (`T4_load_postgres.ktr`):** Ingestão do dataset consolidado e carga atómica/idempotente na tabela relacional PostgreSQL $\rightarrow$ popula `bmw_m_performance_fiabilidade`.
+   - **T5 (`T5_export_reports.ktr`):** Leitura relacional do PostgreSQL e exportação simultânea em JSON (catálogo completo de 28 modelos) e XML (agregações analíticas por série) $\rightarrow$ produz artefactos em `data/output/`.
+   - **Sucesso ETL (`SUCCESS`):** Ponto de conclusão formal que valida a integridade global do pipeline.
+3. **Mecanismo *Fail-Fast* e Controlo de Exceções:** Qualquer anomalia crítica detetada numa transformação (ex.: falha de rede na API NHTSA, indisponibilidade temporária da base de dados relacional ou divergência de tipos de dados) interrompe imediatamente o pipeline, desviando a execução para o step comum `Abortar por Erro`, evitando a propagação de estados parciais inconsistentes ou a geração de relatórios corrompidos.
+4. **Portabilidade Universal:** Desacoplamento de qualquer caminho rígido ou absoluto na máquina de desenvolvimento através do uso sistemático da variável nativa do PDI `${Internal.Entry.Current.Directory}/../transformations/`.
+
+---
+
+### 13.2. Arquitetura do Fluxo de Execução do Job
+
+```mermaid
+flowchart TD
+    START([START\nInício do Pipeline]) -->|Sucesso / Incondicional| T1["T1 - Especificações\n(T1_extract_specs.ktr)"]
+    
+    %% Fluxo Feliz (Verde)
+    T1 -->|Sucesso: E=0| T2["T2 - Recalls NHTSA\n(T2_extract_nhtsa.ktr)"]
+    T2 -->|Sucesso: E=0| T3["T3 - Consolidação Analítica\n(T3_consolidate_metrics.ktr)"]
+    T3 -->|Sucesso: E=0| T4["T4 - Carga PostgreSQL\n(T4_load_postgres.ktr)"]
+    T4 -->|Sucesso: E=0| T5["T5 - Exportação JSON e XML\n(T5_export_reports.ktr)"]
+    T5 -->|Sucesso: E=0| SUC([Sucesso ETL\nEstado Terminal OK])
+
+    %% Fluxo de Exceção Fail-Fast (Vermelho)
+    T1 -.->|Falha: E > 0| ABORT(["Abortar por Erro\n(Job Entry: ABORT\nParagem Imediata)"])
+    T2 -.->|Falha: E > 0| ABORT
+    T3 -.->|Falha: E > 0| ABORT
+    T4 -.->|Falha: E > 0| ABORT
+    T5 -.->|Falha: E > 0| ABORT
+
+    classDef start fill:#d4edda,stroke:#28a745,stroke-width:2px;
+    classDef trans fill:#eef6ff,stroke:#007bff,stroke-width:1.5px;
+    classDef success fill:#c3e6cb,stroke:#155724,stroke-width:2px;
+    classDef abort fill:#f8d7da,stroke:#721c24,stroke-width:2px;
+    class START start;
+    class T1,T2,T3,T4,T5 trans;
+    class SUC success;
+    class ABORT abort;
+```
+
+---
+
+### 13.3. Tabela Detalhada de Decisões Técnicas das Entradas do Job (`J_main.kjb`)
+
+| Step no Job | Tipo de Entrada | Configuração Técnica Aplicada | Justificação Académica e Arquitetural |
+| :--- | :--- | :--- | :--- |
+| **START** | `SPECIAL` (`<start>Y</start>`) | • **Repeat:** `N`<br>• **Scheduler:** Nenhum (trigger manual / CLI)<br>• **Coordenadas:** `(x=80, y=200)` | **Ponto Único de Entrada do Job:** Inicializa o contexto de execução, variáveis de ambiente e instâncias de logging do motor PDI. |
+| **T1 - Especificações** | `TRANS` (`JobEntryTrans`) | • **Specification method:** `filename`<br>• **Filename:** `${Internal.Entry.Current.Directory}/../transformations/T1_extract_specs.ktr`<br>• **Run configuration:** `Pentaho local`<br>• **Wait until finished:** `Y`<br>• **Pass all parameters:** `Y`<br>• **Coordenadas:** `(x=260, y=200)` | **Execução Atómica e Isolada da Fase 1/2:** Garante que a ingestão, quarentena e cálculo de rácios de performance são concluídos e que o ficheiro `specs_limpas.csv` é integralmente fechado em disco antes de avançar para a etapa seguinte. |
+| **T2 - Recalls NHTSA** | `TRANS` (`JobEntryTrans`) | • **Specification method:** `filename`<br>• **Filename:** `${Internal.Entry.Current.Directory}/../transformations/T2_extract_nhtsa.ktr`<br>• **Run configuration:** `Pentaho local`<br>• **Wait until finished:** `Y`<br>• **Pass all parameters:** `Y`<br>• **Coordenadas:** `(x=440, y=200)` | **Consumo de Serviço Externo e Enriquecimento:** Depende estritamente do output de T1. A chamada da API REST e o parsing JSON são executados sincronicamente, gerando o artefacto `nhtsa_recalls.csv` com as métricas de segurança rodoviária. |
+| **T3 - Consolidação Analítica** | `TRANS` (`JobEntryTrans`) | • **Specification method:** `filename`<br>• **Filename:** `${Internal.Entry.Current.Directory}/../transformations/T3_consolidate_metrics.ktr`<br>• **Run configuration:** `Pentaho local`<br>• **Wait until finished:** `Y`<br>• **Pass all parameters:** `Y`<br>• **Coordenadas:** `(x=640, y=200)` | **Junção de Streams e Métricas Derivadas:** Combina os artefactos de T1 e T2 via `Merge Join`, trata eventuais ausências de recall e calcula a métrica canónica normalizada `recalls_por_100hp`, gerando o dataset consolidado final `bmw_m_performance_fiabilidade.csv`. |
+| **T4 - Carga PostgreSQL** | `TRANS` (`JobEntryTrans`) | • **Specification method:** `filename`<br>• **Filename:** `${Internal.Entry.Current.Directory}/../transformations/T4_load_postgres.ktr`<br>• **Run configuration:** `Pentaho local`<br>• **Wait until finished:** `Y`<br>• **Pass all parameters:** `Y`<br>• **Coordenadas:** `(x=840, y=200)` | **Carga Relacional Idempotente (Fase 3):** Efetua o truncate e a inserção em lote dos 28 modelos na tabela `bmw_m_performance_fiabilidade` da base de dados `carros_etl`, assegurando integridade referencial antes da etapa de exportação. |
+| **T5 - Exportação JSON e XML** | `TRANS` (`JobEntryTrans`) | • **Specification method:** `filename`<br>• **Filename:** `${Internal.Entry.Current.Directory}/../transformations/T5_export_reports.ktr`<br>• **Run configuration:** `Pentaho local`<br>• **Wait until finished:** `Y`<br>• **Pass all parameters:** `Y`<br>• **Coordenadas:** `(x=1040, y=200)` | **Disseminação Multiformato (Fase 4):** Consome os dados persistidos no PostgreSQL e materializa simultaneamente o catálogo exaustivo em JSON e o relatório executivo com agregações dimensionais por série em XML. |
+| **Sucesso ETL** | `SUCCESS` (`JobEntrySuccess`) | • **Parallel:** `N`<br>• **Coordenadas:** `(x=1220, y=200)` | **Validação Terminal de Sucesso:** Regista formalmente a conclusão íntegra de todo o pipeline com status de sucesso (`result=[true]`), emitindo código de retorno `0` para o sistema operativo. |
+| **Abortar por Erro** | `ABORT` (`JobEntryAbort`) | • **Message:** `"O pipeline ETL falhou na execução de uma das transformações."`<br>• **Coordenadas:** `(x=640, y=380)` | **Tratamento Centralizado Fail-Fast:** Ponto de convergência de todos os 5 hops de erro. Interrompe a execução com código de saída não-zero e regista a mensagem de falha nos logs, garantindo que nenhum passo subsequente é executado em caso de erro. |
+
+---
+
+### 13.4. Matriz de Conexões (*Hops*) e Regras de Avaliação
+
+O job implementa 11 conexões (*hops*) com separação rigorosa de fluxo conforme a avaliação de execução:
+
+| Origem (*From*) | Destino (*To*) | Condição (*Evaluation*) | Incondicional | Significado Operacional e Visual |
+| :--- | :--- | :---: | :---: | :--- |
+| `START` | `T1 - Especificações` | `Y` | `Y` | Disparo imediato da primeira transformação após início do job (linha verde). |
+| `T1 - Especificações` | `T2 - Recalls NHTSA` | `Y` | `N` | Transição condicional: T1 concluiu com sucesso (`result=true`, `errors=0`) (linha verde). |
+| `T2 - Recalls NHTSA` | `T3 - Consolidação Analítica` | `Y` | `N` | Transição condicional: T2 concluiu com sucesso (linha verde). |
+| `T3 - Consolidação Analítica` | `T4 - Carga PostgreSQL` | `Y` | `N` | Transição condicional: T3 concluiu com sucesso (linha verde). |
+| `T4 - Carga PostgreSQL` | `T5 - Exportação JSON e XML` | `Y` | `N` | Transição condicional: T4 concluiu com sucesso (linha verde). |
+| `T5 - Exportação JSON e XML` | `Sucesso ETL` | `Y` | `N` | Transição condicional: T5 concluiu com sucesso $\rightarrow$ término com sucesso (linha verde). |
+| `T1 - Especificações` | `Abortar por Erro` | `N` | `N` | Desvio de falha: T1 falhou $\rightarrow$ aborta job imediatamente (linha vermelha). |
+| `T2 - Recalls NHTSA` | `Abortar por Erro` | `N` | `N` | Desvio de falha: T2 falhou $\rightarrow$ aborta job imediatamente (linha vermelha). |
+| `T3 - Consolidação Analítica` | `Abortar por Erro` | `N` | `N` | Desvio de falha: T3 falhou $\rightarrow$ aborta job imediatamente (linha vermelha). |
+| `T4 - Carga PostgreSQL` | `Abortar por Erro` | `N` | `N` | Desvio de falha: T4 falhou $\rightarrow$ aborta job imediatamente (linha vermelha). |
+| `T5 - Exportação JSON e XML` | `Abortar por Erro` | `N` | `N` | Desvio de falha: T5 falhou $\rightarrow$ aborta job imediatamente (linha vermelha). |
+
+---
+
+### 13.5. Registo de Execução e Validação Experimental
+
+O job `J_main.kjb` foi validado em ambiente local através da ferramenta de linha de comandos **Pentaho Kitchen (`Kitchen.bat`)** e no ambiente gráfico **Spoon**:
+
+```text
+Kitchen.bat /file:"kettle/jobs/J_main.kjb" /level:Basic
+```
+
+#### Métricas Globais de Execução (Kitchen CLI):
+
+| Indicador de Execução | Valor Medido | Observações e Conformidade |
+| :--- | :---: | :--- |
+| **Tempo Total de Execução do Pipeline** | **~10.9 segundos** | Execução sequencial completa de T1 a T5 (~8.8s consumidos pelas 28 chamadas HTTP à API NHTSA em T2; ~2.1s para as restantes 4 transformações). |
+| **Taxa Global de Erro do Job** | **0% (`Errors = 0`)** | Todos os passos concluídos com `result=[true]`. |
+| **Código de Saída do Processo (Exit Code)** | **`0`** | Retorno limpo e bem-sucedido para o sistema operativo. |
+| **Volume de Dados em T1 (Specs)** | **30 lidos $\rightarrow$ 1 rejeitado $\rightarrow$ 28 gravados** | Higienização correta e isolamento da quarentena (`rejeitados_specs.csv`). |
+| **Volume de Dados em T2 (NHTSA)** | **28 lidos $\rightarrow$ 28 chamadas API $\rightarrow$ 28 gravados** | Sucesso de consumo do endpoint público e parsing JSON. |
+| **Volume de Dados em T3 (Consolidação)** | **56 lidos $\rightarrow$ 28 cruzados $\rightarrow$ 28 gravados** | Junção sem perdas (`LEFT OUTER JOIN`) e métricas calculadas. |
+| **Volume de Dados em T4 (PostgreSQL)** | **28 lidos $\rightarrow$ 28 inseridos** | Idempotência validada via TRUNCATE e inserção em lote JDBC. |
+| **Volume de Dados em T5 (Exportação)** | **28 lidos $\rightarrow$ 28 JSON $\rightarrow$ 6 séries XML** | Catálogo completo e relatório executivo gerados em `data/output/`. |
+| **Estado Terminal Alcançado** | **`Sucesso ETL`** | O step `Abortar por Erro` permaneceu inativo durante todo o teste. |
+
+---
+
+### 13.6. Mapeamento de Artefactos Visuais para a Secção 4.6 do Relatório
+
+Os artefactos visuais consolidados para integração na **Secção 4.6 (Job de Orquestração Global J_main)** encontram-se disponíveis em `docs/diagramas/` (e em `prints/`):
+
+| Ficheiro Alvo | Elemento no Spoon / CLI | Descrição do Conteúdo a Integrar no Relatório |
+| :--- | :--- | :--- |
+| `J_main_pipeline_completo.png` | Canvas Global | Visão panorâmica do job no Spoon exibindo a esteira sequencial (START $\rightarrow$ T1 $\rightarrow$ T2 $\rightarrow$ T3 $\rightarrow$ T4 $\rightarrow$ T5 $\rightarrow$ Sucesso ETL), conexões verdes de sucesso e os 5 hops vermelhos de erro convergindo no step comum *Abortar por Erro*, todos com visto verde de execução. |
+| `J_main_metricas_execucao.png` | Execution Results / Logging | Painel *Job Execution Results / Logging* comprovando a execução sequencial sem falhas das 5 transformações, tempo de execução global (~10s) e resultado terminal `result=[true]` com 0 erros. |
+| `J_main_config_trans.png` | Dialog: *Transformation Entry* | Diálogo de configuração de um step de transformação (ex.: *T1 - Especificações*), ilustrando a definição de caminho relativo portátil `${Internal.Entry.Current.Directory}/../transformations/T1_extract_specs.ktr`, execução atómica local e propagação de parâmetros. |
+
+

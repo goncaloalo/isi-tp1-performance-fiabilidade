@@ -144,11 +144,17 @@ A Transformação T5 conclui a **Fase 4 (Exportação e Disseminação)**, extra
 
 ---
 
-### 2.6. Job de Orquestração: `J_main.kjb`
-| Ficheiro Alvo | Elemento no Spoon | Descrição do Conteúdo a Capturar |
+### 4.6. Job de Orquestração Global (`J_main.kjb`)
+
+O Job global `J_main.kjb` coordena a execução sequencial ponta a ponta de todo o pipeline ETL (T1 a T5) com controlo de fluxo condicional, tratamento centralizado de falhas (*fail-fast*) e validação de sucesso.
+
+#### Mapeamento de Artefactos de Imagem (`prints/` e `docs/diagramas/`)
+
+| Ficheiro Alvo | Elemento no Spoon / CLI | Descrição do Conteúdo a Integrar no Relatório |
 | :--- | :--- | :--- |
-| `19_J_main_canvas_completo.png` | Canvas Global | Orquestração sequencial completa, caminhos de sucesso (verde) e de erro (vermelho). |
-| `20_J_main_email_config.png` | Dialog: *Mail* | Definições de envio de notificação por email (SMTP, anexos e resumo de execução). |
+| `J_main_pipeline_completo.png` | Canvas Global | Visão panorâmica do job no Spoon com a esteira sequencial (START $\rightarrow$ T1 $\rightarrow$ T2 $\rightarrow$ T3 $\rightarrow$ T4 $\rightarrow$ T5 $\rightarrow$ Sucesso ETL), conexões verdes de sucesso e os 5 hops vermelhos de erro convergindo no step comum *Abortar por Erro*, todos com visto verde de execução. |
+| `J_main_metricas_execucao.png` | Execution Results / Logging | Painel *Job Execution Results / Logging* comprovando a execução sequencial sem falhas das 5 transformações, tempo de execução global (~10s) e resultado terminal `result=[true]` com 0 erros. |
+| `J_main_config_trans.png` | Dialog: *Transformation Entry* | Diálogo de configuração de um step de transformação (ex.: *T1 - Especificações*), ilustrando a definição de caminho relativo portátil `${Internal.Entry.Current.Directory}/../transformations/T1_extract_specs.ktr`, execução atómica local e propagação de parâmetros. |
 
 ---
 

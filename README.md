@@ -35,6 +35,7 @@ isi-tp1-performance-fiabilidade/
 │   │   ├── T4_load_postgres.ktr
 │   │   └── T5_export_reports.ktr
 │   └── jobs/                # Jobs de orquestração (.kjb)
+│       └── J_main.kjb       # Job master de orquestração global ponta a ponta
 ├── docs/
 │   ├── decisoes_etl.md      # Caderno formal de decisões técnicas e arquitetura
 │   └── diagramas/           # Checklist e inventário de capturas para o relatório final
@@ -361,13 +362,66 @@ flowchart TD
 
 ---
 
-## 5. Próximas Etapas
+### 4.6. Job de Orquestração Global (`J_main.kjb`)
+
+O Job global **`J_main.kjb`** orquestra e automatiza a execução de ponta a ponta de todo o pipeline de ETL desenvolvido no Pentaho Kettle, assegurando a integridade do encadeamento de dados, controlo centralizado de falhas (*fail-fast*) e validação de sucesso.
+
+#### Arquitetura do Fluxo
+O pipeline coordena sequencialmente as 5 transformações, com transições condicionais de sucesso (linhas verdes) e desvio de falha para um nó comum de abortamento (linhas vermelhas):
+
+```mermaid
+flowchart TD
+    START([START\nInício do Pipeline]) -->|Sucesso| T1["T1 - Especificações\n(T1_extract_specs.ktr)"]
+    T1 -->|Sucesso| T2["T2 - Recalls NHTSA\n(T2_extract_nhtsa.ktr)"]
+    T2 -->|Sucesso| T3["T3 - Consolidação Analítica\n(T3_consolidate_metrics.ktr)"]
+    T3 -->|Sucesso| T4["T4 - Carga PostgreSQL\n(T4_load_postgres.ktr)"]
+    T4 -->|Sucesso| T5["T5 - Exportação JSON e XML\n(T5_export_reports.ktr)"]
+    T5 -->|Sucesso| SUC([Sucesso ETL\nConclusão com Sucesso])
+
+    %% Hops de Falha
+    T1 -.->|Falha| ABORT(["Abortar por Erro\n(Job Entry: ABORT\nInterrupção Imediata)"])
+    T2 -.->|Falha| ABORT
+    T3 -.->|Falha| ABORT
+    T4 -.->|Falha| ABORT
+    T5 -.->|Falha| ABORT
+
+    classDef start fill:#d4edda,stroke:#28a745,stroke-width:2px;
+    classDef trans fill:#eef6ff,stroke:#007bff,stroke-width:1.5px;
+    classDef success fill:#c3e6cb,stroke:#155724,stroke-width:2px;
+    classDef abort fill:#f8d7da,stroke:#721c24,stroke-width:2px;
+    class START start;
+    class T1,T2,T3,T4,T5 trans;
+    class SUC success;
+    class ABORT abort;
+```
+
+#### Destaques Arquiteturais de J_main
+
+1. **Pipeline Sequencial e Encadeamento de Dependências:**
+   - Respeita o ciclo de vida rigoroso dos dados: Limpeza $\rightarrow$ Extração de Recalls $\rightarrow$ Fusão e Métricas $\rightarrow$ Carga Relacional $\rightarrow$ Exportação Analítica.
+2. **Mecanismo Fail-Fast com Tratamento Centralizado de Exceções:**
+   - Em caso de falha em qualquer uma das transformações (ex.: erro de rede no step REST de T2, erro de conectividade em T4), o fluxo não prossegue para os passos seguintes e converge imediatamente para o step `Abortar por Erro` (`ABORT`).
+3. **Portabilidade Universal:**
+   - Todos os steps `TRANS` referenciam as transformações através do caminho relativo portável `${Internal.Entry.Current.Directory}/../transformations/<ficheiro>.ktr`, garantindo funcionamento transparente em qualquer máquina ou ambiente.
+4. **Métricas de Execução em Kitchen / Spoon:**
+   - Execução integral do pipeline testada em ~10 segundos (sendo ~8.8s dedicados aos 28 pedidos REST HTTP à API da NHTSA).
+   - Zero erros em todos os passos (`Errors=0`, `result=[true]`).
+
+#### Artefactos Visuais de J_main (em `prints/` e `docs/diagramas/`)
+- `J_main_pipeline_completo.png` — Canvas panorâmico no Spoon com o fluxo global do job (START $\rightarrow$ T1 a T5 $\rightarrow$ Sucesso ETL e ligações de erro para Abortar por Erro) e visto verde de execução.
+- `J_main_metricas_execucao.png` — Painel Job Execution Results / Logging comprovando a execução sequencial sem erros e duração global de ~10s.
+- `J_main_config_trans.png` — Diálogo de configuração de um step de transformação ilustrando o caminho relativo dinâmico `${Internal.Entry.Current.Directory}/...`.
+
+---
+
+## 5. Estado do Projeto
 
 - [x] **T1 (`T1_extract_specs.ktr`):** Extração, limpeza e métricas mecânicas (Concluída).
 - [x] **T2 (`T2_extract_nhtsa.ktr`):** Ingestão de recalls via API NHTSA (Concluída).
 - [x] **T3 (`T3_consolidate_metrics.ktr`):** Junção analítica e cálculo de fiabilidade (Concluída).
 - [x] **T4 (`T4_load_postgres.ktr`):** Carga relacional idempotente em PostgreSQL (Concluída).
 - [x] **T5 (`T5_export_reports.ktr`):** Exportação analítica multiformato em JSON e XML (Concluída).
-- [ ] **J_main (`J_main.kjb`):** Orquestração sequencial completa do pipeline com controlo de erros, logs e notificações por email.
+- [x] **J_main (`J_main.kjb`):** Orquestração sequencial completa do pipeline com controlo fail-fast de erros e caminhos relativos portáteis (Concluída).
+
 
 

@@ -462,6 +462,10 @@
         <attribute>N</attribute>
       </attribute>
       <attribute>
+        <code>MSSQL_DOUBLE_DECIMAL_SEPARATOR</code>
+        <attribute>N</attribute>
+      </attribute>
+      <attribute>
         <code>PORT_NUMBER</code>
         <attribute>5432</attribute>
       </attribute>
@@ -505,27 +509,67 @@
     </hop>
   </order>
   <step>
-    <name>Ler PostgreSQL</name>
-    <type>TableInput</type>
+    <name>Agregar por Serie</name>
+    <type>GroupBy</type>
     <description/>
-    <distribute>N</distribute>
+    <distribute>Y</distribute>
     <custom_distribution/>
     <copies>1</copies>
     <partitioning>
       <method>none</method>
       <schema_name/>
     </partitioning>
-    <connection>Postgres_Carros</connection>
-    <sql>SELECT make, model, year, engine_hp, weight_kg, zero_to_sixty_mph, engine_cc, price_usd, versao, model_prefix, peso_ton, litros, hp_por_tonelada, hp_por_litro, series, body_type, nhtsa_recalls_count, recalls_por_100hp
-FROM bmw_m_performance_fiabilidade
-ORDER BY series ASC, year ASC</sql>
-    <limit>0</limit>
-    <lookup/>
-    <execute_each_row>N</execute_each_row>
-    <variables_active>N</variables_active>
-    <lazy_conversion_active>N</lazy_conversion_active>
-    <cached_row_meta_active>N</cached_row_meta_active>
-    <row-meta/>
+    <all_rows>N</all_rows>
+    <ignore_aggregate>N</ignore_aggregate>
+    <field_ignore/>
+    <directory>%%java.io.tmpdir%%</directory>
+    <prefix>grp</prefix>
+    <add_linenr>N</add_linenr>
+    <linenr_fieldname/>
+    <give_back_row>N</give_back_row>
+    <group>
+      <field>
+        <name>series</name>
+      </field>
+    </group>
+    <fields>
+      <field>
+        <aggregate>total_modelos</aggregate>
+        <subject>model</subject>
+        <type>COUNT_ALL</type>
+        <valuefield/>
+      </field>
+      <field>
+        <aggregate>media_hp</aggregate>
+        <subject>engine_hp</subject>
+        <type>AVERAGE</type>
+        <valuefield/>
+      </field>
+      <field>
+        <aggregate>media_hp_ton</aggregate>
+        <subject>hp_por_tonelada</subject>
+        <type>AVERAGE</type>
+        <valuefield/>
+      </field>
+      <field>
+        <aggregate>media_hp_litro</aggregate>
+        <subject>hp_por_litro</subject>
+        <type>AVERAGE</type>
+        <valuefield/>
+      </field>
+      <field>
+        <aggregate>total_recalls_serie</aggregate>
+        <subject>nhtsa_recalls_count</subject>
+        <type>SUM</type>
+        <valuefield/>
+      </field>
+      <field>
+        <aggregate>media_recalls_100hp</aggregate>
+        <subject>recalls_por_100hp</subject>
+        <type>AVERAGE</type>
+        <valuefield/>
+      </field>
+    </fields>
     <attributes/>
     <cluster_schema/>
     <remotesteps>
@@ -535,8 +579,8 @@ ORDER BY series ASC, year ASC</sql>
       </output>
     </remotesteps>
     <GUI>
-      <xloc>160</xloc>
-      <yloc>200</yloc>
+      <xloc>400</xloc>
+      <yloc>280</yloc>
       <draw>Y</draw>
     </GUI>
   </step>
@@ -655,82 +699,6 @@ ORDER BY series ASC, year ASC</sql>
     <GUI>
       <xloc>480</xloc>
       <yloc>120</yloc>
-      <draw>Y</draw>
-    </GUI>
-  </step>
-  <step>
-    <name>Agregar por Serie</name>
-    <type>GroupBy</type>
-    <description/>
-    <distribute>Y</distribute>
-    <custom_distribution/>
-    <copies>1</copies>
-    <partitioning>
-      <method>none</method>
-      <schema_name/>
-    </partitioning>
-    <all_rows>N</all_rows>
-    <ignore_aggregate>N</ignore_aggregate>
-    <field_ignore/>
-    <directory>%%java.io.tmpdir%%</directory>
-    <prefix>grp</prefix>
-    <add_linenr>N</add_linenr>
-    <linenr_fieldname/>
-    <give_back_row>N</give_back_row>
-    <group>
-      <field>
-        <name>series</name>
-      </field>
-    </group>
-    <fields>
-      <field>
-        <aggregate>total_modelos</aggregate>
-        <subject>model</subject>
-        <type>COUNT_ALL</type>
-        <valuefield/>
-      </field>
-      <field>
-        <aggregate>media_hp</aggregate>
-        <subject>engine_hp</subject>
-        <type>AVERAGE</type>
-        <valuefield/>
-      </field>
-      <field>
-        <aggregate>media_hp_ton</aggregate>
-        <subject>hp_por_tonelada</subject>
-        <type>AVERAGE</type>
-        <valuefield/>
-      </field>
-      <field>
-        <aggregate>media_hp_litro</aggregate>
-        <subject>hp_por_litro</subject>
-        <type>AVERAGE</type>
-        <valuefield/>
-      </field>
-      <field>
-        <aggregate>total_recalls_serie</aggregate>
-        <subject>nhtsa_recalls_count</subject>
-        <type>SUM</type>
-        <valuefield/>
-      </field>
-      <field>
-        <aggregate>media_recalls_100hp</aggregate>
-        <subject>recalls_por_100hp</subject>
-        <type>AVERAGE</type>
-        <valuefield/>
-      </field>
-    </fields>
-    <attributes/>
-    <cluster_schema/>
-    <remotesteps>
-      <input>
-      </input>
-      <output>
-      </output>
-    </remotesteps>
-    <GUI>
-      <xloc>400</xloc>
-      <yloc>280</yloc>
       <draw>Y</draw>
     </GUI>
   </step>
@@ -868,6 +836,42 @@ ORDER BY series ASC, year ASC</sql>
     <GUI>
       <xloc>640</xloc>
       <yloc>280</yloc>
+      <draw>Y</draw>
+    </GUI>
+  </step>
+  <step>
+    <name>Ler PostgreSQL</name>
+    <type>TableInput</type>
+    <description/>
+    <distribute>N</distribute>
+    <custom_distribution/>
+    <copies>1</copies>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <connection>Postgres_Carros</connection>
+    <sql>SELECT make, model, year, engine_hp, weight_kg, zero_to_sixty_mph, engine_cc, price_usd, versao, model_prefix, peso_ton, litros, hp_por_tonelada, hp_por_litro, series, body_type, nhtsa_recalls_count, recalls_por_100hp
+FROM bmw_m_performance_fiabilidade
+ORDER BY series ASC, year ASC</sql>
+    <limit>0</limit>
+    <lookup/>
+    <execute_each_row>N</execute_each_row>
+    <variables_active>N</variables_active>
+    <lazy_conversion_active>N</lazy_conversion_active>
+    <cached_row_meta_active>N</cached_row_meta_active>
+    <row-meta/>
+    <attributes/>
+    <cluster_schema/>
+    <remotesteps>
+      <input>
+      </input>
+      <output>
+      </output>
+    </remotesteps>
+    <GUI>
+      <xloc>160</xloc>
+      <yloc>200</yloc>
       <draw>Y</draw>
     </GUI>
   </step>
