@@ -743,48 +743,48 @@
         <name>peso_ton</name>
         <type>Number</type>
         <format>#.##</format>
-        <currency>€</currency>
+        <currency/>
         <decimal>.</decimal>
         <group/>
         <nullif/>
         <trim_type>none</trim_type>
-        <length>15</length>
+        <length>-1</length>
         <precision>2</precision>
       </field>
       <field>
         <name>litros</name>
         <type>Number</type>
         <format>#.##</format>
-        <currency>€</currency>
+        <currency/>
         <decimal>.</decimal>
         <group/>
         <nullif/>
         <trim_type>none</trim_type>
-        <length>15</length>
+        <length>-1</length>
         <precision>2</precision>
       </field>
       <field>
         <name>hp_por_tonelada</name>
         <type>Number</type>
         <format>#.##</format>
-        <currency>€</currency>
+        <currency/>
         <decimal>.</decimal>
         <group/>
         <nullif/>
         <trim_type>none</trim_type>
-        <length>15</length>
+        <length>-1</length>
         <precision>2</precision>
       </field>
       <field>
         <name>hp_por_litro</name>
         <type>Number</type>
         <format>#.##</format>
-        <currency>€</currency>
+        <currency/>
         <decimal>.</decimal>
         <group/>
         <nullif/>
         <trim_type>none</trim_type>
-        <length>15</length>
+        <length>-1</length>
         <precision>2</precision>
       </field>
       <field>
@@ -1037,8 +1037,8 @@
         <type>Number</type>
         <format>#</format>
         <currency>€</currency>
-        <decimal>,</decimal>
-        <group>.</group>
+        <decimal>.</decimal>
+        <group>,</group>
         <length>15</length>
         <precision>0</precision>
         <trim_type>none</trim_type>
