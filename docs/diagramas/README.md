@@ -129,10 +129,18 @@ A Transformação T4 concretiza o carregamento da base de dados relacional em Po
 
 ---
 
-### 2.5. Transformação T5: `T5_exports.ktr` (Exportações Heterogéneas)
-| Ficheiro Alvo | Elemento no Spoon | Descrição do Conteúdo a Capturar |
+### 4.5. Transformação T5: Exportações Analíticas Heterogéneas (`T5_export_reports.ktr`)
+
+A Transformação T5 conclui a **Fase 4 (Exportação e Disseminação)**, extraindo os dados relacionais do PostgreSQL e materializando relatórios analíticos em dois formatos heterogéneos: um catálogo integral em formato JSON (`bmw_m_catalogo_completo.json`) e um resumo executivo com agregações por série em formato XML (`bmw_m_resumo_series.xml`).
+
+#### Mapeamento de Artefactos de Imagem (`prints/` e `docs/diagramas/`)
+
+| Ficheiro Alvo | Elemento no Spoon / IDE | Descrição do Conteúdo a Integrar no Relatório |
 | :--- | :--- | :--- |
-| `18_T5_canvas_completo.png` | Canvas Global | Geração simultânea dos ficheiros finais nos formatos CSV e JSON (e XML/SQL). |
+| `T5_pipeline_completo.png` | Canvas Global | Visão global do fluxo de exportação com duplicação em fluxo (*Copy data to next steps*) para o ramo JSON e ramo de agregação XML, com visto verde de sucesso em todos os steps. |
+| `T5_config_groupby.png` | Dialog: *Agregar por Serie* | Configuração do step `GroupBy` com o agrupamento por `series` e as 6 operações de agregação (contagem de modelos, médias de potência e rácios mecânicos, soma de recalls e média normalizada de fiabilidade). |
+| `T5_metricas_execucao.png` | Execution Results | Painel *Step Metrics* comprovando a leitura de 28 tuplos do PostgreSQL, duplicação para 56 linhas emitidas, gravação de 28 registos no JSON e agregação de 6 séries no XML com 0 erros (`E=0`). |
+| `T5_preview_json_xml.png` | Visualização de Ficheiros | Pré-visualização dos artefactos gerados em `data/output/`: catálogo estruturado em JSON e relatório hierárquico com elementos `<serie_analise>` em XML. |
 
 ---
 

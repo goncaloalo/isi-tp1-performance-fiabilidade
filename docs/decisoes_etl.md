@@ -562,3 +562,96 @@ Os artefactos visuais consolidados para integração na **Secção 4.4 (Transfor
 | `T4_ddl_create_table.png` | Editor SQL / pgAdmin | Execução do script DDL (`sql/01_schema.sql`) no PostgreSQL 18 com criação de chave primária, chave candidata única e tipos adequados. |
 | `T4_metricas_execucao.png` | Execution Results | Painel *Step Metrics* comprovando a leitura de 28 registos no CSV e escrita de 28 tuplos no PostgreSQL com zero erros (`E=0`). |
 | `T4_dados_postgres.png` | Data Output / pgAdmin | Consulta SQL de validação (`SELECT * FROM bmw_m_performance_fiabilidade`) evidenciando os 28 registos persistidos, incluindo `price_usd = NULL` no M5 E34 e timestamp `loaded_at`. |
+
+---
+
+## 12. Decisões Técnicas da Transformação T5 (`T5_export_reports.ktr`) — Fase 4: Exportação e Disseminação
+
+- **Artefacto:** `kettle/transformations/T5_export_reports.ktr`
+- **Áreas de Dados Envolvidas:** Base de Dados PostgreSQL (`carros_etl.public.bmw_m_performance_fiabilidade`) $\rightarrow$ `data/output/` (JSON e XML)
+- **Ficheiros Gerados:**
+  - `data/output/bmw_m_catalogo_completo.json` (Catálogo integral de 28 modelos)
+  - `data/output/bmw_m_resumo_series.xml` (Relatório executivo agregado por 6 séries)
+
+### 12.1. Enquadramento e Objetivo da Transformação
+
+A transformação **`T5_export_reports.ktr`** cumpre a **Fase 4 (Exportação e Disseminação de Dados)**, extraindo a informação consolidada e validada do repositório relacional PostgreSQL para produzir artefactos de consumo heterogéneo:
+
+1. **Leitura Relacional Otimizada:** Consulta direta à tabela relacional `bmw_m_performance_fiabilidade` via `Table input` com ordenação prévia `ORDER BY series ASC, year ASC`.
+2. **Duplicação de Fluxo (*Copy Data to Next Steps*):** Configuração de `<distribute>N</distribute>`, permitindo alimentar simultaneamente dois ramos paralelos sem necessidade de steps auxiliares ou leituras redundantes à base de dados.
+3. **Ramo A — Catálogo Integral JSON:** Produção de um ficheiro JSON estruturado contendo todos os 28 modelos e 18 atributos de negócio num único bloco/array (`catalogo_bmw_m`), ideal para consumo por APIs REST, front-ends web e plataformas NoSQL.
+4. **Ramo B — Agregação Analítica e Relatório XML:** Agregação dos dados por série automóvel (`series`) no step `GroupBy` com computação de 6 métricas consolidadas (contagem de modelos, potência média, rendimento volumétrico, rácio peso/potência, volume de recalls e índice normalizado de fiabilidade), seguido da materialização em documento XML hierárquico com elementos `<serie_analise>` dentro de `<relatorio_series_bmw_m>`.
+
+---
+
+### 12.2. Arquitetura do Fluxo de Dados (Pipeline T5)
+
+```mermaid
+flowchart TD
+    DB[("PostgreSQL 18\n(carros_etl.\nbmw_m_performance_fiabilidade)")] --> A["Ler PostgreSQL\n(TableInput: ORDER BY series, year\nDistribute = N / Copy Stream)"]
+    
+    %% Ramo A - JSON
+    A -->|"Cópia 1 (28 tuplos)"| B["Exportar Catalogo JSON\n(JsonOutput: catalogo_bmw_m\nwrite to file, 1 bloco)"]
+    B --> OUT_JSON[("data/output/\nbmw_m_catalogo_completo.json\n(28 modelos, 18 atributos)")]
+    
+    %% Ramo B - XML
+    A -->|"Cópia 2 (28 tuplos)"| C["Agregar por Serie\n(GroupBy: group by series\n6 métricas agregadas)"]
+    C -->|"6 séries agregadas"| D["Exportar Resumo XML\n(XMLOutput: relatorio_series_bmw_m\nrepeat: serie_analise)"]
+    D --> OUT_XML[("data/output/\nbmw_m_resumo_series.xml\n(6 séries analisadas)")]
+
+    classDef step fill:#eef6ff,stroke:#3366cc,stroke-width:1px;
+    classDef db fill:#e8f5e9,stroke:#2e7d32,stroke-width:1px;
+    classDef file fill:#fff3e0,stroke:#e65100,stroke-width:1px;
+    class A,B,C,D step;
+    class DB db;
+    class OUT_JSON,OUT_XML file;
+```
+
+---
+
+### 12.3. Tabela Detalhada de Decisões Técnicas da Transformação T5
+
+| Step no Kettle | Tipo de Operador | Configuração Técnica Aplicada | Justificação Académica e Arquitetural |
+| :--- | :--- | :--- | :--- |
+| **Ler PostgreSQL** | `Table input` (`TableInput`) | • **Connection:** `Postgres_Carros`<br>• **SQL:** `SELECT ... FROM bmw_m_performance_fiabilidade ORDER BY series ASC, year ASC`<br>• **Distribute:** `N` (*Copy data to next steps*) | **Eficiência na Ingestão e Pré-Ordenação:** A ordenação SQL `ORDER BY series ASC` prepara o fluxo diretamente para o operador `GroupBy` subsequente sem necessitar de um step `Sort rows` intermediário em memória. A definição de `distribute = N` duplica deterministicamente o stream de 28 tuplos (28 para JSON + 28 para GroupBy = 56 linhas emitidas), garantindo consumo paralelo sem leituras concorrentes ao PostgreSQL. |
+| **Exportar Catalogo JSON** | `Json output` (`JsonOutput`) | • **Operation:** `writetofile`<br>• **Json Bloc:** `catalogo_bmw_m`<br>• **Nr rows in bloc:** `0` (todos num array)<br>• **Encoding:** `UTF-8`<br>• **Filename:** `${Internal.Entry.Current.Directory}/../../data/output/bmw_m_catalogo_completo.json`<br>• **Campos:** 18 atributos mapeados | **Exportação Canónica em JSON (Requisito Multiformato):** Gera um documento JSON unificado contendo o catálogo exaustivo dos 28 veículos da gama BMW M. Preserva fielmente os tipos numéricos e a integridade de dados omissos (ex.: `price_usd = null` no M5 E34), facultando um formato leve e interoperável para sistemas distribuídos. |
+| **Agregar por Serie** | `Group by` (`GroupBy`) | • **Group field:** `series`<br>• **Agregações:**<br>  1. `total_modelos` (`COUNT_ALL` de `model`)<br>  2. `media_hp` (`AVERAGE` de `engine_hp`)<br>  3. `media_hp_ton` (`AVERAGE` de `hp_por_tonelada`)<br>  4. `media_hp_litro` (`AVERAGE` de `hp_por_litro`)<br>  5. `total_recalls_serie` (`SUM` de `nhtsa_recalls_count`)<br>  6. `media_recalls_100hp` (`AVERAGE` de `recalls_por_100hp`) | **Computação Analítica Agregada (Fase 4):** Sintetiza a dimensionalidade dos dados ao nível da gama de produto (`Série 2 M`, `Série 3 M`, `Série 4 M`, `Série 5 M`, `Série 6 M`, `Série 8 M`), permitindo cruzar a evolução de potência média com a densidade agregada de campanhas de recall por segmento. |
+| **Exportar Resumo XML** | `XML output` (`XMLOutput`) | • **Filename:** `${Internal.Entry.Current.Directory}/../../data/output/bmw_m_resumo_series.xml`<br>• **Encoding:** `UTF-8`<br>• **Root element:** `relatorio_series_bmw_m`<br>• **Repeat element:** `serie_analise`<br>• **Campos:** 7 atributos com precisão explícita (`#.##` e `#.####` com decimal `.`) | **Relatório Hierárquico e Estruturado em XML:** Produz uma representação em árvore de marcação semântica com os indicadores executivos de cada série, permitindo a ingestão direta em sistemas corporativos legados, ferramentas de BI baseadas em XML/XSLT ou relatórios de auditoria técnica. |
+
+---
+
+### 12.4. Registo de Execução e Validação Experimental
+
+A transformação `T5_export_reports.ktr` foi testada e validada em ambiente Spoon e via CLI (`Pan.bat`) contra a base de dados `carros_etl`:
+
+| Indicador de Execução | Valor Medido | Observações e Conformidade |
+| :--- | :---: | :--- |
+| **Tuplos lidos do PostgreSQL (`TableInput`)** | **28** | Leitura integral da tabela `bmw_m_performance_fiabilidade`. |
+| **Linhas emitidas pelo step `Ler PostgreSQL`** | **56** | 28 linhas copiadas para o ramo JSON + 28 linhas para o ramo GroupBy. |
+| **Registos escritos no JSON (`catalogo_bmw_m`)** | **28** | Materialização integral em `data/output/bmw_m_catalogo_completo.json`. |
+| **Séries agrupadas no `GroupBy`** | **6** | Redução analítica dos 28 modelos em 6 famílias M canónicas. |
+| **Elementos gravados no XML (`serie_analise`)** | **6** | Materialização em `data/output/bmw_m_resumo_series.xml`. |
+| **Taxa de erro na execução** | **0%** | Todos os 4 steps concluídos com sucesso (`Status = Finished`, **`E=0`**). |
+| **Tempo de Execução medido** | **~0.8s** | Execução atómica com geração concorrente de ambos os ficheiros. |
+
+#### Síntese dos Resultados Agregados no XML (`data/output/bmw_m_resumo_series.xml`):
+1. **Série 2 M:** 4 modelos, média de 422.00 hp, 270.65 hp/ton, 141.64 hp/litro, 5 recalls totais, rácio médio de 0.2925 recalls/100hp.
+2. **Série 3 M:** 9 modelos, média de 395.00 hp, 253.75 hp/ton, 127.63 hp/litro, 22 recalls totais, rácio médio de 0.6467 recalls/100hp.
+3. **Série 4 M:** 4 modelos, média de 487.00 hp, 303.29 hp/ton, 163.31 hp/litro, 7 recalls totais, rácio médio de 0.3750 recalls/100hp.
+4. **Série 5 M:** 8 modelos, média de 503.00 hp, 271.22 hp/ton, 116.02 hp/litro, 1 recall total, rácio médio de 0.0200 recalls/100hp.
+5. **Série 6 M:** 2 modelos, média de 533.00 hp, 299.60 hp/ton, 114.42 hp/litro, 0 recalls totais, rácio médio de 0.0000 recalls/100hp.
+6. **Série 8 M:** 1 modelo, 600.00 hp, 318.30 hp/ton, 136.52 hp/litro, 1 recall total, rácio médio de 0.1700 recalls/100hp.
+
+---
+
+### 12.5. Mapeamento de Artefactos Visuais para a Secção 4.5 do Relatório
+
+Os 4 artefactos visuais consolidados para integração na **Secção 4.5 (Transformação T5_export_reports)** encontram-se disponíveis em `docs/diagramas/` (e em `prints/`):
+
+| Ficheiro Alvo | Elemento no Spoon / IDE | Descrição do Conteúdo a Integrar no Relatório |
+| :--- | :--- | :--- |
+| `T5_pipeline_completo.png` | Canvas Global | Visão global do fluxo de exportação com duplicação em fluxo (*Copy data to next steps*) para o ramo JSON e ramo de agregação XML, com visto verde de sucesso em todos os steps. |
+| `T5_config_groupby.png` | Dialog: *Agregar por Serie* | Configuração do step `GroupBy` com o agrupamento por `series` e as 6 operações de agregação (contagem de modelos, médias de potência e rácios mecânicos, soma de recalls e média normalizada de fiabilidade). |
+| `T5_metricas_execucao.png` | Execution Results | Painel *Step Metrics* comprovando a leitura de 28 tuplos do PostgreSQL, duplicação para 56 linhas emitidas, gravação de 28 registos no JSON e agregação de 6 séries no XML com zero erros (`E=0`). |
+| `T5_preview_json_xml.png` | Visualização de Ficheiros | Pré-visualização dos artefactos gerados em `data/output/`: catálogo estruturado em JSON e relatório hierárquico com elementos `<serie_analise>` em XML. |
+

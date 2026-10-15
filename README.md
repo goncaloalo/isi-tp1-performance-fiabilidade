@@ -26,13 +26,14 @@ isi-tp1-performance-fiabilidade/
 │   ├── raw/                 # Dados originais em bruto (specs.csv, series_lookup.csv)
 │   ├── staging/             # Quarentena e dados intermédios (rejeitados_specs.csv)
 │   ├── processed/           # Datasets canónicos limpos e validados (specs_limpas.csv, nhtsa_recalls.csv, bmw_m_performance_fiabilidade.csv)
-│   └── export/              # Exportações finais consolidadas (CSV, JSON, SQL)
+│   └── output/              # Relatórios analíticos finais (bmw_m_catalogo_completo.json, bmw_m_resumo_series.xml)
 ├── kettle/
 │   ├── transformations/     # Ficheiros de transformação Kettle (.ktr)
 │   │   ├── T1_extract_specs.ktr
 │   │   ├── T2_extract_nhtsa.ktr
 │   │   ├── T3_consolidate_metrics.ktr
-│   │   └── T4_load_postgres.ktr
+│   │   ├── T4_load_postgres.ktr
+│   │   └── T5_export_reports.ktr
 │   └── jobs/                # Jobs de orquestração (.kjb)
 ├── docs/
 │   ├── decisoes_etl.md      # Caderno formal de decisões técnicas e arquitetura
@@ -299,12 +300,74 @@ flowchart LR
 
 ---
 
+### 4.5. Transformação T5: Exportações Analíticas Heterogéneas (`T5_export_reports.ktr`)
+
+A Transformação T5 concretiza a **Fase 4 (Exportação e Disseminação)**, extraindo os dados relacionais do PostgreSQL e materializando relatórios analíticos em dois formatos heterogéneos: um catálogo integral em formato JSON e um resumo executivo com agregações por série em formato XML.
+
+#### Arquitetura do Fluxo
+O pipeline consome a tabela `bmw_m_performance_fiabilidade` e duplica o stream em memória (**Copy data to next steps**) para dois ramos concorrentes sem leituras redundantes à base de dados:
+
+```mermaid
+flowchart TD
+    DB[("PostgreSQL 18\n(carros_etl.\nbmw_m_performance_fiabilidade)")] --> A["Ler PostgreSQL\n(TableInput: ORDER BY series, year\nDistribute = N / Copy Stream)"]
+    
+    %% Ramo A - JSON
+    A -->|"Cópia 1 (28 tuplos)"| B["Exportar Catalogo JSON\n(JsonOutput: catalogo_bmw_m\nwrite to file, 1 bloco)"]
+    B --> OUT_JSON[("data/output/\nbmw_m_catalogo_completo.json\n(28 modelos, 18 atributos)")]
+    
+    %% Ramo B - XML
+    A -->|"Cópia 2 (28 tuplos)"| C["Agregar por Serie\n(GroupBy: group by series\n6 métricas agregadas)"]
+    C -->|"6 séries agregadas"| D["Exportar Resumo XML\n(XMLOutput: relatorio_series_bmw_m\nrepeat: serie_analise)"]
+    D --> OUT_XML[("data/output/\nbmw_m_resumo_series.xml\n(6 séries analisadas)")]
+
+    classDef step fill:#eef6ff,stroke:#3366cc,stroke-width:1px;
+    classDef db fill:#e8f5e9,stroke:#2e7d32,stroke-width:1px;
+    classDef file fill:#fff3e0,stroke:#e65100,stroke-width:1px;
+    class A,B,C,D step;
+    class DB db;
+    class OUT_JSON,OUT_XML file;
+```
+
+#### Fragmentos Técnicos e Decisões de T5
+
+1. **Duplicação Eficiente de Stream (`TableInput`):**
+   - Configuração de `<distribute>N</distribute>` (**Copy data to next steps**), duplicando deterministicamente os 28 tuplos para alimentar ambos os ramos em paralelo (56 linhas emitidas), eliminando o overhead de queries concorrentes.
+   - Ordenação nativa `ORDER BY series ASC, year ASC` que alimenta diretamente o step `GroupBy` sem necessitar de ordenação intermédia em memória.
+
+2. **Ramo A — Catálogo Integral JSON (`JsonOutput`):**
+   - Operação `writetofile` com bloco `catalogo_bmw_m` e `nrRowsInBloc = 0` (todos os 28 modelos num único array JSON).
+   - Ficheiro gerado: `data/output/bmw_m_catalogo_completo.json` (codificação UTF-8, 18 atributos mapeados e preservação fiel de `price_usd: null` no M5 E34).
+
+3. **Ramo B — Agregação Dimensional no GroupBy (`GroupBy`):**
+   - Agrupamento pela chave dimensional `series` (reduzindo os 28 modelos a 6 famílias M: Séries 2, 3, 4, 5, 6 e 8).
+   - Computação de 6 métricas analíticas:
+     - `total_modelos` (`COUNT_ALL`)
+     - `media_hp` (`AVERAGE`)
+     - `media_hp_ton` (`AVERAGE`)
+     - `media_hp_litro` (`AVERAGE`)
+     - `total_recalls_serie` (`SUM`)
+     - `media_recalls_100hp` (`AVERAGE`)
+
+4. **Resumo Executivo em XML (`XMLOutput`):**
+   - Ficheiro gerado: `data/output/bmw_m_resumo_series.xml` (codificação UTF-8).
+   - Estrutura hierárquica com elemento raiz `<relatorio_series_bmw_m>` e elementos repetidores `<serie_analise>`.
+   - Formatação estrita com separador decimal `.` e precisão explícita de duas casas (`#.##`) e quatro casas (`#.####` em `media_recalls_100hp`).
+
+#### Artefactos Visuais de T5 (em `prints/` e `docs/diagramas/`)
+- `T5_pipeline_completo.png` — Canvas panorâmico no Spoon evidenciando a duplicação em dois ramos paralelos e visto verde em todos os steps.
+- `T5_config_groupby.png` — Diálogo do step `GroupBy` comprovando o agrupamento por `series` e as 6 fórmulas de agregação.
+- `T5_metricas_execucao.png` — Painel Step Metrics comprovando 28 linhas lidas do PostgreSQL, 56 linhas emitidas, 28 registos no JSON e 6 séries no XML com taxa de erro nula (`E=0`).
+- `T5_preview_json_xml.png` — Pré-visualização dos artefactos gerados em `data/output/`: catálogo JSON formatado e resumo executivo em XML.
+
+---
+
 ## 5. Próximas Etapas
 
 - [x] **T1 (`T1_extract_specs.ktr`):** Extração, limpeza e métricas mecânicas (Concluída).
 - [x] **T2 (`T2_extract_nhtsa.ktr`):** Ingestão de recalls via API NHTSA (Concluída).
 - [x] **T3 (`T3_consolidate_metrics.ktr`):** Junção analítica e cálculo de fiabilidade (Concluída).
 - [x] **T4 (`T4_load_postgres.ktr`):** Carga relacional idempotente em PostgreSQL (Concluída).
-- [ ] **T5 (`T5_exports.ktr`):** Exportação dos dados consolidados em múltiplos formatos heterogéneos (CSV, JSON, XML/SQL).
+- [x] **T5 (`T5_export_reports.ktr`):** Exportação analítica multiformato em JSON e XML (Concluída).
 - [ ] **J_main (`J_main.kjb`):** Orquestração sequencial completa do pipeline com controlo de erros, logs e notificações por email.
+
 
