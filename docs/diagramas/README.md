@@ -122,8 +122,9 @@ A Transformação T4 concretiza o carregamento da base de dados relacional em Po
 | :--- | :--- | :--- |
 | `T4_pipeline_completo.png` | Canvas Global | Visão global do fluxo de carga com os passos *Ler dataset consolidado CSV* e *Carregar PostgreSQL* com visto verde de sucesso. |
 | `T4_config_csv_input.png` | Dialog: *Ler dataset consolidado CSV* | Configuração do step `CsvInput` com caminho relativo `${Internal.Entry.Current.Directory}/../../data/processed/bmw_m_performance_fiabilidade.csv` e tipagem explícita. |
+| `T4_config_table_output.png` | Dialog: *Carregar PostgreSQL* | Configuração do step `TableOutput` com opção *Truncate table* ativada, batch commit de 1000 e mapeamento explícito dos 18 campos. |
 | `T4_ddl_create_table.png` | Editor SQL / pgAdmin | Execução do DDL (`sql/01_schema.sql`) no PostgreSQL com criação de chave primária, chave candidata única e tipos adequados. |
-| `T4_metricas_execucao.png` | Execution Results | Painel *Step Metrics* comprovando a leitura de 28 registos no CSV e inserção de 28 linhas na tabela PostgreSQL com 0 erros. |
+| `T4_metricas_execucao.png` | Execution Results | Painel *Step Metrics* comprovando a leitura de 28 registos no CSV e inserção de 28 linhas na tabela PostgreSQL com 0 erros (`E=0`). |
 | `T4_dados_postgres.png` | Data Output / pgAdmin | Consulta SQL de validação (`SELECT * FROM bmw_m_performance_fiabilidade`) evidenciando os 28 registos persistidos com timestamp `loaded_at`. |
 
 ---

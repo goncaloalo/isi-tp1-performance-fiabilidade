@@ -251,17 +251,17 @@ flowchart TD
 
 ### 4.4. Transformação T4: Carga Relacional em PostgreSQL (`T4_load_postgres.ktr`)
 
-A Transformação T4 concretiza a **Fase 3 (Carregamento e Persistência)**, carregando os dados limpos e consolidados de performance mecânica e fiabilidade rodoviária na base de dados relacional **PostgreSQL** (`carros_etl`).
+A Transformação T4 concretiza a **Fase 3 (Carregamento e Persistência)**, carregando os dados limpos e consolidados de performance mecânica e fiabilidade rodoviária na base de dados relacional **PostgreSQL 18** (`carros_etl`, tabela `bmw_m_performance_fiabilidade`).
 
 #### Arquitetura do Fluxo
-O pipeline ingere o ficheiro consolidado `bmw_m_performance_fiabilidade.csv` de forma portável e persiste 28 tuplos na tabela `bmw_m_performance_fiabilidade`:
+O pipeline ingere o ficheiro consolidado `bmw_m_performance_fiabilidade.csv` de forma portável e persiste 28 tuplos na tabela `bmw_m_performance_fiabilidade` com taxa de erro nula (**`E=0`**):
 
 ```mermaid
 flowchart LR
     A["Ler dataset consolidado CSV\n(CsvInput:\nbmw_m_performance_fiabilidade.csv)"] --> B["Carregar PostgreSQL\n(TableOutput:\nTruncate = Y, Batch = 1000)"]
     
-    subgraph SGBD["PostgreSQL (carros_etl)"]
-        B -.-> TAB[("Tabela:\nbmw_m_performance_fiabilidade\n(28 registos)")]
+    subgraph SGBD["PostgreSQL 18 (carros_etl)"]
+        B -.-> TAB[("Tabela:\nbmw_m_performance_fiabilidade\n(28 registos, E=0)")]
     end
 
     classDef step fill:#eef6ff,stroke:#3366cc,stroke-width:1px;
@@ -274,26 +274,28 @@ flowchart LR
 
 1. **Portabilidade e Higienização de Strings (`CsvInput`):**
    - **Caminho Relativo:** `${Internal.Entry.Current.Directory}/../../data/processed/bmw_m_performance_fiabilidade.csv`.
-   - **Formatação de Strings:** `<length>-1</length>` e `<trim_type>both</trim_type>` para todos os atributos textuais, prevenindo padding e caracteres espúrios.
+   - **Formatação de Atributos:** `<length>-1</length>`, `<trim_type>both</trim_type>` e `<currency/>` para todos os atributos, prevenindo padding e símbolos residuais.
    - **Tipificação Numérica:** Campos inteiros lidos como `Integer` e rácios decimais com precisão estrita e ponto decimal `.`.
 
 2. **Esquema Relacional DDL (`sql/01_schema.sql`):**
    - Estrutura física composta por 20 colunas (chave primária `id SERIAL`, 18 atributos analíticos mapeados e carimbo de auditoria `loaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`).
    - Restrição de integridade `CONSTRAINT uq_model_year UNIQUE (model, year)` impedindo duplicações semânticas.
+   - **Preservação de Valores Ausentes:** O preço de comercialização do BMW M5 E34 é mantido estritamente como `price_usd = NULL` (coluna sem restrição `NOT NULL`), respeitando a fidelidade de dados e evitando imputações espúrias.
 
 3. **Idempotência Determinística via TRUNCATE (`TableOutput`):**
    - Ativação do parâmetro `<truncate>Y</truncate>` (Truncate table), que esvazia atomicamente a tabela de destino antes da inserção em lote (`commit = 1000`).
-   - Garante que reexecuções parciais ou repetidas da pipeline ETL decorrem sem falhas por colisão de chaves únicas ou inconsistências de dados residuais.
+   - Articulação direta com a constraint `uq_model_year (model, year)`, garantindo que reexecuções parciais ou repetidas da pipeline ETL decorrem sem falhas por colisão de chaves únicas ou inconsistências de dados residuais.
 
 4. **Mapeamento Explícito de 18 Atributos:**
    - Inserção estrita dos 18 atributos analíticos, delegando no PostgreSQL a atribuição do `id` sequencial e do timestamp `loaded_at`.
 
 #### Artefactos Visuais de T4 (em `prints/` e `docs/diagramas/`)
 - `T4_pipeline_completo.png` — Canvas panorâmico no Spoon com os passos *Ler dataset consolidado CSV* e *Carregar PostgreSQL* com visto verde.
-- `T4_config_csv_input.png` — Diálogo do step `CsvInput` evidenciando o caminho relativo e a parametrização dos 18 campos.
+- `T4_config_csv_input.png` — Diálogo do step `CsvInput` evidenciando o caminho relativo, tipagem dos 18 campos e ausência de padding.
+- `T4_config_table_output.png` — Diálogo do step `TableOutput` com a opção *Truncate table* ativada, batch commit de 1000 e mapeamento explícito dos 18 campos.
 - `T4_ddl_create_table.png` — Execução do script DDL de criação da tabela no pgAdmin / editor SQL.
-- `T4_metricas_execucao.png` — Painel Step Metrics comprovando 28 linhas lidas e 28 linhas inseridas com 0 erros.
-- `T4_dados_postgres.png` — Visualização dos 28 registos carregados na tabela PostgreSQL via pgAdmin.
+- `T4_metricas_execucao.png` — Painel Step Metrics comprovando 28 linhas lidas e 28 linhas inseridas com 0 erros (`E=0`).
+- `T4_dados_postgres.png` — Visualização dos 28 registos carregados na tabela PostgreSQL via pgAdmin (incluindo `price_usd = NULL` no M5 E34).
 
 ---
 

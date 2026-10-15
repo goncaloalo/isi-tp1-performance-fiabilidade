@@ -524,7 +524,7 @@
         <name>make</name>
         <type>String</type>
         <format/>
-        <currency>€</currency>
+        <currency/>
         <decimal>,</decimal>
         <group>.</group>
         <length>-1</length>
@@ -535,7 +535,7 @@
         <name>model</name>
         <type>String</type>
         <format/>
-        <currency>€</currency>
+        <currency/>
         <decimal>,</decimal>
         <group>.</group>
         <length>-1</length>
@@ -546,73 +546,73 @@
         <name>year</name>
         <type>Integer</type>
         <format>#</format>
-        <currency>€</currency>
+        <currency/>
         <decimal>,</decimal>
         <group>.</group>
-        <length>15</length>
+        <length>-1</length>
         <precision>0</precision>
-        <trim_type>none</trim_type>
+        <trim_type>both</trim_type>
       </field>
       <field>
         <name>engine_hp</name>
         <type>Integer</type>
         <format>#</format>
-        <currency>€</currency>
+        <currency/>
         <decimal>,</decimal>
         <group>.</group>
-        <length>15</length>
+        <length>-1</length>
         <precision>0</precision>
-        <trim_type>none</trim_type>
+        <trim_type>both</trim_type>
       </field>
       <field>
         <name>weight_kg</name>
         <type>Integer</type>
         <format>#</format>
-        <currency>€</currency>
+        <currency/>
         <decimal>,</decimal>
         <group>.</group>
-        <length>15</length>
+        <length>-1</length>
         <precision>0</precision>
-        <trim_type>none</trim_type>
+        <trim_type>both</trim_type>
       </field>
       <field>
         <name>zero_to_sixty_mph</name>
         <type>BigNumber</type>
         <format>#.##</format>
-        <currency>€</currency>
+        <currency/>
         <decimal>.</decimal>
         <group>,</group>
-        <length>15</length>
+        <length>-1</length>
         <precision>2</precision>
-        <trim_type>none</trim_type>
+        <trim_type>both</trim_type>
       </field>
       <field>
         <name>engine_cc</name>
         <type>Integer</type>
         <format>#</format>
-        <currency>€</currency>
+        <currency/>
         <decimal>,</decimal>
         <group>.</group>
-        <length>15</length>
+        <length>-1</length>
         <precision>0</precision>
-        <trim_type>none</trim_type>
+        <trim_type>both</trim_type>
       </field>
       <field>
         <name>price_usd</name>
         <type>Integer</type>
         <format>#</format>
-        <currency>€</currency>
+        <currency/>
         <decimal>,</decimal>
         <group>.</group>
-        <length>15</length>
+        <length>-1</length>
         <precision>0</precision>
-        <trim_type>none</trim_type>
+        <trim_type>both</trim_type>
       </field>
       <field>
         <name>versao</name>
         <type>String</type>
         <format/>
-        <currency>€</currency>
+        <currency/>
         <decimal>,</decimal>
         <group>.</group>
         <length>-1</length>
@@ -623,7 +623,7 @@
         <name>model_prefix</name>
         <type>String</type>
         <format/>
-        <currency>€</currency>
+        <currency/>
         <decimal>,</decimal>
         <group>.</group>
         <length>-1</length>
@@ -634,51 +634,51 @@
         <name>peso_ton</name>
         <type>BigNumber</type>
         <format>#.###</format>
-        <currency>€</currency>
+        <currency/>
         <decimal>.</decimal>
         <group>,</group>
-        <length>15</length>
+        <length>-1</length>
         <precision>2</precision>
-        <trim_type>none</trim_type>
+        <trim_type>both</trim_type>
       </field>
       <field>
         <name>litros</name>
         <type>BigNumber</type>
         <format>#.###</format>
-        <currency>€</currency>
+        <currency/>
         <decimal>.</decimal>
         <group>,</group>
-        <length>15</length>
+        <length>-1</length>
         <precision>2</precision>
-        <trim_type>none</trim_type>
+        <trim_type>both</trim_type>
       </field>
       <field>
         <name>hp_por_tonelada</name>
         <type>BigNumber</type>
         <format>#.###</format>
-        <currency>€</currency>
+        <currency/>
         <decimal>.</decimal>
         <group>,</group>
-        <length>15</length>
+        <length>-1</length>
         <precision>2</precision>
-        <trim_type>none</trim_type>
+        <trim_type>both</trim_type>
       </field>
       <field>
         <name>hp_por_litro</name>
         <type>BigNumber</type>
         <format>#.###</format>
-        <currency>€</currency>
+        <currency/>
         <decimal>.</decimal>
         <group>,</group>
-        <length>15</length>
+        <length>-1</length>
         <precision>2</precision>
-        <trim_type>none</trim_type>
+        <trim_type>both</trim_type>
       </field>
       <field>
         <name>series</name>
         <type>String</type>
         <format/>
-        <currency>€</currency>
+        <currency/>
         <decimal>,</decimal>
         <group>.</group>
         <length>-1</length>
@@ -689,7 +689,7 @@
         <name>body_type</name>
         <type>String</type>
         <format/>
-        <currency>€</currency>
+        <currency/>
         <decimal>,</decimal>
         <group>.</group>
         <length>-1</length>
@@ -700,23 +700,23 @@
         <name>nhtsa_recalls_count</name>
         <type>Integer</type>
         <format>#</format>
-        <currency>€</currency>
+        <currency/>
         <decimal>,</decimal>
         <group>.</group>
-        <length>15</length>
+        <length>-1</length>
         <precision>0</precision>
-        <trim_type>none</trim_type>
+        <trim_type>both</trim_type>
       </field>
       <field>
         <name>recalls_por_100hp</name>
         <type>BigNumber</type>
         <format>#.###</format>
-        <currency>€</currency>
+        <currency/>
         <decimal>.</decimal>
         <group>,</group>
-        <length>15</length>
+        <length>-1</length>
         <precision>4</precision>
-        <trim_type>none</trim_type>
+        <trim_type>both</trim_type>
       </field>
     </fields>
     <attributes/>
