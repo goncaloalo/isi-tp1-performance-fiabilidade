@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS bmw_m_performance_fiabilidade (
+    id SERIAL PRIMARY KEY,
+    make VARCHAR(50) NOT NULL,
+    model VARCHAR(100) NOT NULL,
+    year INT NOT NULL,
+    engine_hp INT NOT NULL,
+    weight_kg INT NOT NULL,
+    zero_to_sixty_mph NUMERIC(4,2),
+    engine_cc INT NOT NULL,
+    price_usd INT,
+    versao VARCHAR(50) NOT NULL,
+    model_prefix VARCHAR(10) NOT NULL,
+    peso_ton NUMERIC(6,3) NOT NULL,
+    litros NUMERIC(5,2) NOT NULL,
+    hp_por_tonelada NUMERIC(6,2) NOT NULL,
+    hp_por_litro NUMERIC(6,2) NOT NULL,
+    series VARCHAR(50) NOT NULL,
+    body_type VARCHAR(50) NOT NULL,
+    nhtsa_recalls_count INT DEFAULT 0,
+    recalls_por_100hp NUMERIC(6,4) DEFAULT 0,
+    loaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_model_year UNIQUE (model, year)
+);
