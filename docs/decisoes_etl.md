@@ -383,14 +383,13 @@ flowchart TD
 | `price_usd` | `Integer` | Preço de comercialização base (USD) | `52000` |
 | `versao` | `String` | Versão de alto rendimento identificada ou `Base` | `Base` |
 | `model_prefix` | `String` | Código identificador da gama M | `M2` |
-| `peso_ton` | `Number` | Peso convertido em toneladas | `1.495` |
-| `litros` | `Number` | Cilindrada convertida em litros | `2.979` |
+| `peso_ton` | `Number` | Peso convertido em toneladas | `1.5` |
+| `litros` | `Number` | Cilindrada convertida em litros | `2.98` |
 | `hp_por_tonelada` | `Number` | Potência específica por peso ($\text{hp/ton}$) | `247.49` |
-| `hp_por_litro` | `Number` | Rendimento volumétrico específico ($\text{hp/litro}$) | `124.20` |
+| `hp_por_litro` | `Number` | Rendimento volumétrico específico ($\text{hp/litro}$) | `124.2` |
 | `series` | `String` | Série comercial obtida via lookup | `Série 2 M` |
 | `body_type` | `String` | Tipo de carroçaria associado | `Coupé` |
 | `nhtsa_recalls_count` | `Integer` | Número oficial de campanhas de recall (NHTSA) | `1` |
-| `recalls_por_hp` | `Number` | Rácio de recalls por cavalo de potência | `0.0027` |
 | `recalls_por_100hp` | `Number` | Índice de fiabilidade normalizado por 100 hp | `0.27` |
 
 ### 9.5. Registo de Execução e Validação Experimental
@@ -402,7 +401,7 @@ A transformação `T3_consolidate_metrics.ktr` foi executada em ambiente Pentaho
 | **Registos lidos na stream de especificações** | **28** | Ingestão integral de `data/processed/specs_limpas.csv`. |
 | **Registos lidos na stream de recalls** | **28** | Ingestão integral de `data/processed/nhtsa_recalls.csv`. |
 | **Registos processados no Merge Join** | **28** | Correspondência exata em todas as chaves compostas sem descartes. |
-| **Registos exportados (`bmw_m_performance_fiabilidade.csv`)** | **28** | Materialização integral do dataset analítico tabular consolidado. |
+| **Registos exportados (`bmw_m_performance_fiabilidade.csv`)** | **28** | Materialização integral do dataset analítico tabular consolidado (18 colunas). |
 | **Taxa de erro na execução** | **0%** | Todos os 10 steps concluídos com sucesso e visto verde (`Status = Finished`). |
 | **Tempo de Execução** | **~0.5s** | Execução rápida em memória sem latência de rede. |
 | **Integridade dos Rácios Calculados** | **100%** | Valores válidos calculados para todos os modelos sem divisão por zero. |
@@ -419,6 +418,36 @@ Os 6 artefactos visuais consolidados para integração na **Secção 4.3 (Transf
 | `T3_config_select_values.png` | Dialog: *Limpar campos duplicados* | Configuração da remoção das colunas duplicadas da stream da direita (`make_1`, `model_1`, `year_1`). |
 | `T3_config_calculator_metricas.png` | Dialog: *Calcular metricas fiabilidade* | Configuração das operações de divisão e multiplicação no Calculator. |
 | `T3_preview_dados_finais.png` | Preview Data | Pré-visualização da grelha de dados consolidada com todos os atributos mecânicos, identificadores de série e rácios calculados. |
+
+---
+
+## 10. Síntese de Refinamentos Arquiteturais e Decisões de Fecho da Fase 2 (T1 a T3)
+
+No fecho da Fase 2 do pipeline de ETL (abrangendo as transformações `T1_extract_specs`, `T2_extract_nhtsa` e `T3_consolidate_metrics`), foi conduzido um ciclo rigoroso de auditoria de dados e otimização de metadados, resultando em quatro decisões arquiteturais chave:
+
+### 10.1. Correção de Precisão Numérica e Tipificação Aritmética (T1 e T3)
+- **Problema Diagnosticado:** Por defeito, a ingestão de campos inteiros (`engine_hp`, `weight_kg`, `engine_cc`) e constantes numéricas com tipo `Integer` induzia o motor Java do Pentaho PDI a operar em divisão inteira nativa (*integer truncation*), descartando a parte decimal antes da formatação e resultando em valores truncados (ex.: $1495 / 1000 = 1$ em vez de $1.495$).
+- **Solução Implementada:** 
+  - Ajuste sistemático da tipagem para `<type>Number</type>` no step `CsvInput` de entrada e no step `Add constants` (`const_1000` e `const_100`), garantindo aritmética de ponto flutuante (*double precision*) de ponta a ponta.
+  - Parametrização explícita de formatação nos passos de exportação (`TextFileOutput` de T1 e T3): máscara `<format>#.##</format>`, símbolo decimal `<decimal>.</decimal>`, sem agrupamento de milhares `<group/>`, e precisão estrita de duas casas decimais `<precision>2</precision>` para todos os rácios calculados (`peso_ton`, `litros`, `hp_por_tonelada`, `hp_por_litro` e `recalls_por_100hp`).
+- **Impacto nos Resultados:** Valores matematicamente exatos em todas as linhas (ex.: no BMW M2 F87: `peso_ton = 1.5`, `litros = 2.98`, `hp_por_tonelada = 247.49`, `hp_por_litro = 124.2`, `recalls_por_100hp = 0.27`).
+
+### 10.2. Portabilidade Universal do Repositório via Variáveis de Contexto PDI
+- **Problema Diagnosticado:** A utilização de caminhos absolutos locais (`C:\Users\gfcco\...`) gerados automaticamente pelo Spoon quebrava a execução do pipeline quando clonado para outra máquina ou sistema operacional.
+- **Solução Implementada:** Todos os passos de leitura (`CsvInput`) e escrita (`TextFileOutput`) de T1, T2 e T3 foram convertidos para caminhos relativos portáteis com recurso à variável intrínseca do PDI:  
+  `${Internal.Entry.Current.Directory}/../../data/...`
+- **Impacto:** O pipeline é 100% agnóstico do ambiente de execução, sendo executável diretamente após o clone do repositório Git em qualquer diretório de trabalho.
+
+### 10.3. Eliminação de Padding de Espaços (Fixed-Width) e Higienização de Strings
+- **Problema Diagnosticado:** No Pentaho PDI, declarar um comprimento fixo para campos de texto (ex.: `<length>16</length>`) no step `TextFileOutput` força o motor a efetuar *padding* com espaços à direita até preencher a largura total, gerando saídas poluídas (ex.: `"BMW "`, `"M2 Competition  "`, `"Coupé           "`).
+- **Solução Implementada:** 
+  - Redefinição de todos os atributos textuais nos steps de `CsvInput` e `TextFileOutput` para `<length>-1</length>` (comprimento variável) e ativação de `<trim_type>both</trim_type>`.
+  - Higienização de eventuais espaços residuais nos CSVs de saída (`specs_limpas.csv`, `nhtsa_recalls.csv`, `bmw_m_performance_fiabilidade.csv` e `rejeitados_specs.csv`), preservando a pureza delimitada por vírgulas.
+
+### 10.4. Enxugamento Estrutural do Dataset Consolidado (18 Atributos Analíticos)
+- **Decisão:** O dataset final em `data/processed/bmw_m_performance_fiabilidade.csv` foi purificado para exportar estritamente **18 colunas**, descartando a constante transitória `const_100` e a métrica intermediária de suporte `recalls_por_hp`.
+- **Justificação:** A métrica analiticamente relevante para correlação com performance é o rácio normalizado por centena de cavalos (`recalls_por_100hp`), mantendo o esquema relacional final e o consumo analítico direto, limpo e sem redundância.
+
 
 
 
