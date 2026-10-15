@@ -2,3 +2,4 @@
 .kettle/
 data/staging/*
 !data/staging/.gitkeep
+!data/staging/rejeitados_specs.csv

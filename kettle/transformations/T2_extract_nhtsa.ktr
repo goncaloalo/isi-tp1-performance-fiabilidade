@@ -488,7 +488,7 @@
       <method>none</method>
       <schema_name/>
     </partitioning>
-    <filename>C:\Users\gfcco\OneDrive\Documentos\isi-tp1-performance-fiabilidade\data\processed\specs_limpas.csv</filename>
+    <filename>${Internal.Entry.Current.Directory}/../../data/processed/specs_limpas.csv</filename>
     <filename_field/>
     <rownum_field/>
     <include_filename>N</include_filename>
@@ -510,9 +510,9 @@
         <currency>€</currency>
         <decimal>,</decimal>
         <group>.</group>
-        <length>4</length>
+        <length>-1</length>
         <precision>-1</precision>
-        <trim_type>none</trim_type>
+        <trim_type>both</trim_type>
       </field>
       <field>
         <name>model</name>
@@ -521,9 +521,9 @@
         <currency>€</currency>
         <decimal>,</decimal>
         <group>.</group>
-        <length>16</length>
+        <length>-1</length>
         <precision>-1</precision>
-        <trim_type>none</trim_type>
+        <trim_type>both</trim_type>
       </field>
       <field>
         <name>year</name>
@@ -598,9 +598,9 @@
         <currency>€</currency>
         <decimal>,</decimal>
         <group>.</group>
-        <length>11</length>
+        <length>-1</length>
         <precision>-1</precision>
-        <trim_type>none</trim_type>
+        <trim_type>both</trim_type>
       </field>
       <field>
         <name>model_prefix</name>
@@ -609,9 +609,9 @@
         <currency>€</currency>
         <decimal>,</decimal>
         <group>.</group>
-        <length>2</length>
+        <length>-1</length>
         <precision>-1</precision>
-        <trim_type>none</trim_type>
+        <trim_type>both</trim_type>
       </field>
       <field>
         <name>peso_ton</name>
@@ -664,9 +664,9 @@
         <currency>€</currency>
         <decimal>,</decimal>
         <group>.</group>
-        <length>9</length>
+        <length>-1</length>
         <precision>-1</precision>
-        <trim_type>none</trim_type>
+        <trim_type>both</trim_type>
       </field>
       <field>
         <name>body_type</name>
@@ -675,9 +675,9 @@
         <currency>€</currency>
         <decimal>,</decimal>
         <group>.</group>
-        <length>16</length>
+        <length>-1</length>
         <precision>-1</precision>
-        <trim_type>none</trim_type>
+        <trim_type>both</trim_type>
       </field>
     </fields>
     <attributes/>
@@ -1078,7 +1078,7 @@ var url_recalls = "https://api.nhtsa.gov/recalls/recallsByVehicle?make="
     <fileNameField/>
     <create_parent_folder>Y</create_parent_folder>
     <file>
-      <name>C:\Users\gfcco\OneDrive\Documentos\isi-tp1-performance-fiabilidade\data\processed\nhtsa_recalls</name>
+      <name>${Internal.Entry.Current.Directory}/../../data/processed/nhtsa_recalls</name>
       <servlet_output>N</servlet_output>
       <do_not_open_new_file_init>N</do_not_open_new_file_init>
       <extention>csv</extention>
@@ -1103,8 +1103,8 @@ var url_recalls = "https://api.nhtsa.gov/recalls/recallsByVehicle?make="
         <decimal/>
         <group/>
         <nullif/>
-        <trim_type>none</trim_type>
-        <length>4</length>
+        <trim_type>both</trim_type>
+        <length>-1</length>
         <precision>-1</precision>
       </field>
       <field>
@@ -1115,8 +1115,8 @@ var url_recalls = "https://api.nhtsa.gov/recalls/recallsByVehicle?make="
         <decimal/>
         <group/>
         <nullif/>
-        <trim_type>none</trim_type>
-        <length>2</length>
+        <trim_type>both</trim_type>
+        <length>-1</length>
         <precision>-1</precision>
       </field>
       <field>

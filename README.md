@@ -175,6 +175,9 @@ flowchart LR
 - `T2_config_json_input.png` — Configuração do separador Fields com a expressão JSONPath `$.Count`.
 - `T2_preview_dados_finais.png` — Grelha de validação dos dados finais com os recalls extraídos (`nhtsa_recalls.csv`).
 
+> [!NOTE] **Nota Metodológica sobre a Cobertura da NHTSA**
+> A base da NHTSA reflete exclusivamente o mercado rodoviário dos EUA. Modelos ou variantes exclusivos do mercado europeu (como o **M3 E46 CSL** e a carrinha **M3 G81 Touring**) não foram comercializados nos EUA, justificando a inexistência de registos locais e a consequente imputação semântica de `0` recalls em T3.
+
 ---
 
 ### 4.3. Transformação T3: Consolidação e Métricas Finais (`T3_consolidate_metrics.ktr`)
