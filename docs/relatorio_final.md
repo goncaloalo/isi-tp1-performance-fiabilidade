@@ -13,19 +13,19 @@
 
 ## 1. Introdução e Problema
 
-O objetivo deste trabalho prático é construir um pipeline de ETL (*Extract, Transform, Load*) em **Pentaho Data Integration (PDI / Kettle)** capaz de integrar dois conjuntos de dados heterogéneos:
-1. **Especificações mecânicas históricas:** Ficheiros tabulares locais (`data/raw/specs.csv` e `data/raw/series_lookup.csv`) com as características técnicas da linhagem desportiva BMW M entre os anos de 1985 e 2024.
-2. **Dados oficiais de fiabilidade e segurança:** Registos de chamadas à oficina (*recalls*) obtidos em tempo real através da API REST pública da entidade governamental norte-americana **NHTSA (*National Highway Traffic Safety Administration*)**.
+O objetivo deste trabalho prático é desenvolver um processo completo de ETL (*Extract, Transform, Load*) no **Pentaho Data Integration (PDI / Kettle)** para cruzar duas fontes de dados com formatos e origens distintas:
+1. **Especificações técnicas de automóveis:** Ficheiros CSV locais com dados de modelos desportivos da gama BMW M produzidos entre 1985 e 2024 (`data/raw/specs.csv` e `data/raw/series_lookup.csv`).
+2. **Dados oficiais de chamadas à oficina (*recalls*):** Informação obtida através da API REST pública da agência governamental norte-americana **NHTSA (*National Highway Traffic Safety Administration*)**.
 
-O problema central consiste em correlacionar a evolução dos índices de rendimento mecânico — designadamente a potência específica ($\text{cv/litro}$) e a relação peso/potência ($\text{cv/tonelada}$), alavancados pela transição de motores naturalmente aspirados para blocos bi-turbo — com a incidência de falhas críticas de homologação e segurança rodoviária, quantificada através do indicador compósito normalizado **`recalls_por_100hp`**.
+O problema em estudo é simples: ao longo das últimas quatro décadas, os modelos da gama BMW M aumentaram significativamente a sua potência específica (cavalos por litro de cilindrada) e a sua relação peso/potência, sobretudo com a transição de motores naturalmente aspirados para blocos bi-turbo modernos. Pretende-se verificar se este aumento de rendimento e complexidade mecânica se traduziu num maior número de avarias e problemas de segurança reportados pelas autoridades, através do cálculo de um indicador exploratório de fiabilidade: o rácio **`recalls_por_100hp`**.
 
-A solução desenvolvida higieniza os registos, isola dados anómalos em quarentena, calcula métricas de engenharia com precisão decimal estrita, persiste o modelo relacional num servidor **PostgreSQL 18** de forma idempotente e gera relatórios de saída em formatos canónicos JSON e XML, sendo todo o fluxo orquestrado por um Job automatizado com terminação *fail-fast*.
+O pipeline implementado limpa os dados, isola anomalias num ficheiro de quarentena, calcula indicadores derivados, guarda o resultado estruturado numa base de dados relacional **PostgreSQL 18** e exporta relatórios finais em dois formatos distintos: **JSON** e **XML**. Todo o processo é executado de forma automática através de um Job mestre.
 
 ---
 
 ## 2. Arquitetura do Pipeline ETL
 
-O fluxo global de dados estrutura-se em cinco camadas bem delimitadas:
+O fluxo de dados foi organizado em camadas para garantir a separação entre dados em bruto, dados em processamento e resultados finais:
 
 ```mermaid
 flowchart LR
@@ -48,16 +48,16 @@ flowchart LR
     class API ext;
 ```
 
-A orquestração e o processamento distribuem-se pelos seguintes ficheiros:
+O projeto divide-se em 5 transformações (`.ktr`) e 1 job principal (`.kjb`):
 
-| Componente | Tipo | Ficheiro | Função no Pipeline | Entradas | Saídas |
-| :--- | :---: | :--- | :--- | :--- | :--- |
-| **T1** | `ktr` | `T1_extract_specs.ktr` | Leitura bruta, limpeza de texto, quarentena de peso nulo, extração léxica via Regex, deduplicação e cálculo de rácios de potência. | `data/raw/specs.csv`<br>`data/raw/series_lookup.csv` | `data/processed/specs_limpas.csv`<br>`data/staging/rejeitados_specs.csv` |
-| **T2** | `ktr` | `T2_extract_nhtsa.ktr` | Consumo dinâmico da API REST da NHTSA, parsing JSON da contagem de recalls e estruturação tabular. | `data/processed/specs_limpas.csv` | `data/processed/nhtsa_recalls.csv` |
-| **T3** | `ktr` | `T3_consolidate_metrics.ktr` | Junção ordenada (*Merge Join*), eliminação de colunas redundantes e cálculo da métrica de fiabilidade normalizada. | `data/processed/specs_limpas.csv`<br>`data/processed/nhtsa_recalls.csv` | `data/processed/bmw_m_performance_fiabilidade.csv` |
-| **T4** | `ktr` | `T4_load_postgres.ktr` | Carga física relacional em lote no PostgreSQL com truncagem prévia idempotente. | `data/processed/bmw_m_performance_fiabilidade.csv` | Tabela `bmw_m_performance_fiabilidade` (BD `carros_etl`) |
-| **T5** | `ktr` | `T5_export_reports.ktr` | Leitura SQL ordenada e bifurcação de fluxo para catálogo detalhado JSON e agregação por série em XML. | Tabela `bmw_m_performance_fiabilidade` | `data/output/bmw_m_catalogo_completo.json`<br>`data/output/bmw_m_resumo_series.xml` |
-| **J_main** | `kjb` | `J_main.kjb` | Orquestração sequencial atómica do pipeline com tratamento de exceções *Fail-Fast*. | Execução manual / Kitchen CLI | Código de saída do processo (0 ou 1) |
+| Componente | Ficheiro | Objetivo | Dados de Entrada | Dados de Saída |
+| :--- | :--- | :--- | :--- | :--- |
+| **T1** | `T1_extract_specs.ktr` | Limpar texto, rejeitar dados sem peso, extrair versões via Regex, calcular rácios mecânicos e associar a série. | `specs.csv`<br>`series_lookup.csv` | `specs_limpas.csv` (28 válidos)<br>`rejeitados_specs.csv` (1 rejeitado) |
+| **T2** | `T2_extract_nhtsa.ktr` | Construir os URLs, consultar a API REST da NHTSA e recolher a contagem de recalls em JSON. | `specs_limpas.csv` | `nhtsa_recalls.csv` (28 registos) |
+| **T3** | `T3_consolidate_metrics.ktr` | Juntar as especificações com os recalls (*Merge Join*) e calcular a métrica `recalls_por_100hp`. | `specs_limpas.csv`<br>`nhtsa_recalls.csv` | `bmw_m_performance_fiabilidade.csv` |
+| **T4** | `T4_load_postgres.ktr` | Carregar os 28 registos na tabela PostgreSQL, usando *Truncate table* para permitir reexecuções limpas. | `bmw_m_performance_fiabilidade.csv` | Tabela `bmw_m_performance_fiabilidade` |
+| **T5** | `T5_export_reports.ktr` | Ler os dados da base de dados e gerar em simultâneo o catálogo detalhado em JSON e o resumo por série em XML. | Tabela `bmw_m_performance_fiabilidade` | `bmw_m_catalogo_completo.json`<br>`bmw_m_resumo_series.xml` |
+| **J_main** | `J_main.kjb` | Executar sequencialmente T1 a T5, parando o processo em caso de erro em qualquer etapa (*fail-fast*). | Invocação manual ou Kitchen CLI | Código de conclusão do pipeline |
 
 ---
 
@@ -65,40 +65,42 @@ A orquestração e o processamento distribuem-se pelos seguintes ficheiros:
 
 ### 3.1. T1 — Extração, Limpeza e Enriquecimento de Especificações (`T1_extract_specs.ktr`)
 
-O primeiro estágio consome o ficheiro `data/raw/specs.csv` (composto por 30 linhas no total: 1 cabeçalho e 29 tuplos de dados) e executa o saneamento estrutural:
+O ficheiro original `data/raw/specs.csv` contém 30 linhas (1 cabeçalho e 29 registos de veículos). Nesta transformação são efetuados os seguintes passos:
 
-1. **Higienização Sintática (`String operations`):** Aplicação de `trim` em ambos os lados e conversão para maiúsculas no atributo `make` (padronizando `"BMW"`), bem como eliminação de espaços terminais no campo `model`.
-2. **Qualidade de Dados e Quarentena (`Filter rows`):** O step avalia a condição booleana `weight_kg IS NOT NULL`. O modelo **BMW M3 E92 GTS (2010)**, cujo peso em vazio estava omisso na fonte primária, foi segregado imediatamente para `data/staging/rejeitados_specs.csv`. Esta decisão impede que ocorram divisões por zero no cálculo de $\text{hp/ton}$ e evita imputações artificiais de peso que corromperiam o rigor analítico.
-3. **Tratamento de Nulos (`If field value is null`):** Atribuição do valor semântico `'Base'` aos modelos que não pertencem a edições especiais de alto rendimento.
-4. **Extração Léxica por Expressões Regulares (`Regex evaluation`):**
-   - Extração da versão de pista/competição a partir de `model`: `.*?\b(Competition|CSL|GTS|CS|Touring)\b.*` (armazenado no campo `versao`).
-   - Normalização da chave da série: `^(M\d)\b.*` (armazenado no campo `model_prefix`, ex.: `"M2"`, `"M3"`, `"M5"`).
-5. **Deduplicação Determinística (`Sort rows` + `Unique rows`):** Ordenação e remoção de duplicados com base na chave `(make, model, year)`. O registo duplicado do M3 foi eliminado nesta fase, reduzindo a stream aos 28 modelos únicos válidos.
-6. **Cálculo de Métricas Mecânicas (`Calculator`):** O operador nativo `Calculator` do PDI opera estritamente sobre pares de campos de stream, não aceitando valores literais em linha nos operandos de divisão. Injetou-se previamente uma constante tipificada `const_1000 = 1000` via `Add constants`, viabilizando o cálculo encadeado de:
-   $$\text{peso\_ton} = \frac{\text{weight\_kg}}{\text{const\_1000}}, \quad \text{litros} = \frac{\text{engine\_cc}}{\text{const\_1000}}$$
-   $$\text{hp\_por\_tonelada} = \frac{\text{engine\_hp}}{\text{peso\_ton}}, \quad \text{hp\_por\_litro} = \frac{\text{engine\_hp}}{\text{litros}}$$
-7. **Cruzamento Dimensional (`Stream lookup`):** Junção em memória entre o campo `model_prefix` e o ficheiro auxiliar `data/raw/series_lookup.csv`, recuperando os metadados `series` (ex.: `"Série 3 M"`) e `body_type` (ex.: `"Sedan/Touring"`).
-8. **Exportação Canónica:** Gravação de 28 tuplos em `data/processed/specs_limpas.csv`.
+1. **Limpeza de texto (`String operations`):** Aplicação de `trim` à marca e modelo para retirar espaços em branco indesejados, e conversão da marca para maiúsculas (`"BMW"`).
+2. **Validação e Quarentena (`Filter rows`):** O step verifica se o peso está preenchido (`weight_kg IS NOT NULL`). O registo do **BMW M3 E92 GTS (2010)** não tinha valor de peso. Como o peso é indispensável para calcular a relação potência/peso, o registo foi enviado para quarentena em `data/staging/rejeitados_specs.csv`. Optou-se por isolar o registo em vez de inventar um peso arbitrário.
+3. **Tratamento de nulos (`If field value is null`):** Atribui a designação `'Base'` aos modelos que não sejam edições especiais, evitando campos vazios.
+4. **Expressões Regulares (`Regex evaluation`):**
+   - Extração da variante desportiva: expressão `.*?\b(Competition|CSL|GTS|CS|Touring)\b.*` aplicada ao campo `model` para preencher o atributo `versao`.
+   - Extração do código da série: expressão `^(M\d)\b.*` para obter `model_prefix` (ex.: `"M2"`, `"M3"`, `"M5"`).
+5. **Remoção de duplicados (`Sort rows` + `Unique rows`):** Ordenação e remoção de duplicados com base em `(make, model, year)`, mantendo 28 modelos únicos válidos.
+6. **Cálculo de rácios (`Calculator`):** O operador nativo `Calculator` do Pentaho não aceita números fixos na divisão. Por isso, adicionou-se uma constante `const_1000 = 1000` (`Add constants`) e calcularam-se:
+   - $\text{peso\_ton} = \text{weight\_kg} / 1000$ (peso em toneladas)
+   - $\text{litros} = \text{engine\_cc} / 1000$ (cilindrada em litros)
+   - $\text{hp\_por\_tonelada} = \text{engine\_hp} / \text{peso\_ton}$
+   - $\text{hp\_por\_litro} = \text{engine\_hp} / \text{litros}$
+7. **Cruzamento dimensional (`Stream lookup`):** Cruzamento do campo `model_prefix` com o ficheiro `data/raw/series_lookup.csv` para associar a designação da série (`series`) e o tipo genérico de carroçaria (`body_type`).
+8. **Exportação:** Gravação dos 28 registos validados no ficheiro `data/processed/specs_limpas.csv`.
 
-#### Evidências Visuais da Transformação T1
+#### Evidências Visuais de T1
 
 ![Pipeline Completo T1](./diagramas/T1_pipeline_completo.png)
-*Figura 1: Visão global do fluxo T1 com visto verde em todos os passos e desvio de quarentena.*
+*Figura 1: Fluxo completo da transformação T1 com visto verde em todos os passos e saída de quarentena.*
 
 ![Configuração String Operations T1](./diagramas/T1_config_string_operations.png)
-*Figura 2: Operações de trim e conversão para maiúsculas no step String operations.*
+*Figura 2: Configuração de limpeza sintática com trim e conversão para maiúsculas.*
 
 ![Configuração Validação de Peso T1](./diagramas/T1_config_filter_peso.png)
-*Figura 3: Filtro lógico de validação de peso não nulo com encaminhamento para quarentena.*
+*Figura 3: Filtro lógico de validação de peso não nulo com desvio de registos inválidos para quarentena.*
 
 ![Configuração Tratar Nulos T1](./diagramas/T1_config_tratar_nulos.png)
-*Figura 4: Imputação semântica de 'Base' no campo versao para prevenir nulos em dimensões.*
+*Figura 4: Imputação semântica do valor 'Base' quando a variante desportiva é nula.*
 
 ![Configuração Regex Versão T1](./diagramas/T1_config_regex_versao.png)
 *Figura 5: Expressão regular para captura de edições desportivas no nome do modelo.*
 
 ![Configuração Regex Prefixo T1](./diagramas/T1_config_regex_prefixo.png)
-*Figura 6: Expressão regular para isolar o prefixo unificado da gama M.*
+*Figura 6: Expressão regular para isolamento do prefixo unificado da gama M.*
 
 ![Configuração Calculator T1](./diagramas/T1_config_calculator_metricas.png)
 *Figura 7: Fórmulas aritméticas encadeadas no Calculator com suporte da constante 1000.*
@@ -116,10 +118,10 @@ O primeiro estágio consome o ficheiro `data/raw/specs.csv` (composto por 30 lin
 
 ### 3.2. T2 — Extração de Recalls via API REST NHTSA (`T2_extract_nhtsa.ktr`)
 
-A transformação **T2** consome `data/processed/specs_limpas.csv` e interroga a API da NHTSA:
+A transformação **T2** consome o ficheiro `data/processed/specs_limpas.csv` e obtém os dados de segurança da API da NHTSA:
 
-1. **Otimização de Tráfego:** Ingestão dos 28 registos, isolamento dos campos `(make, model_prefix, year)` e aplicação de deduplicação prévia (`Unique rows`). Desta forma, garante-se que não são enviadas chamadas redundantes pela rede.
-2. **Construção Dinâmica do URL (`Modified JavaScript value`):** Formatação do endpoint governamental com recurso à função nativa `encodeURIComponent` para mitigar problemas com caracteres especiais e espaços:
+1. **Deduplicação de pedidos:** O fluxo seleciona `(make, model_prefix, year)` e aplica `Unique rows`. Assim, evita-se fazer pedidos HTTP repetidos para a mesma combinação de modelo e ano.
+2. **Construção do URL (`Modified JavaScript value`):** Montagem do URL da API utilizando `encodeURIComponent` para tratar caracteres especiais:
    ```javascript
    var url_recalls = "https://api.nhtsa.gov/recalls/recallsByVehicle?make=" 
                      + encodeURIComponent(make) 
@@ -128,26 +130,26 @@ A transformação **T2** consome `data/processed/specs_limpas.csv` e interroga a
                      + "&modelYear=" 
                      + year;
    ```
-3. **Consumo HTTP (`REST client`):** Invocação síncrona do método GET sobre o URL gerado dinamicamente, obtendo a resposta com o código de estado e o payload estruturado em JSON.
-4. **Parsing JSON (`JSON input`):** Extração pontual do contador numérico de recalls recorrendo à expressão JSONPath `$.Count`, atribuindo o resultado à variável `nhtsa_recalls_count`.
-5. **Persistência:** Filtragem dos atributos de controlo via `Select values` e gravação de 28 registos no ficheiro `data/processed/nhtsa_recalls.csv`.
+3. **Chamada REST (`REST client`):** Envio de pedidos HTTP GET síncronos ao serviço da NHTSA.
+4. **Leitura da resposta JSON (`JSON input`):** O serviço devolve um JSON com o atributo `Count`, que indica o número de campanhas de recall registadas. Esse valor é extraído diretamente através da expressão JSONPath `$.Count` para o campo `nhtsa_recalls_count`.
+5. **Gravação:** Os 28 registos obtidos são gravados em `data/processed/nhtsa_recalls.csv`.
 
-#### Evidências Visuais da Transformação T2
+#### Evidências Visuais de T2
 
 ![Pipeline Completo T2](./diagramas/T2_pipeline_completo.png)
-*Figura 11: Pipeline T2 concluído com sucesso e 9 passos sincronizados.*
+*Figura 11: Fluxo T2 concluído com sucesso e 9 passos sincronizados.*
 
 ![Configuração JavaScript URL T2](./diagramas/T2_config_javascript_url.png)
 *Figura 12: Script de construção e codificação da URL parametrizada para a API NHTSA.*
 
 ![Configuração REST Client T2](./diagramas/T2_config_rest_client.png)
-*Figura 13: Step REST Client parametrizado para execução de pedidos HTTP GET dinâmicos.*
+*Figura 13: Step REST Client parametrizado para pedidos HTTP GET dinâmicos.*
 
 ![Configuração JSON Input T2](./diagramas/T2_config_json_input.png)
 *Figura 14: Extração do atributo Count através do seletor JSONPath $.Count.*
 
 ![Métricas de Execução T2](./diagramas/T2_metricas_execucao.png)
-*Figura 15: Métricas de T2 evidenciando 28 pedidos HTTP executados com zero erros (~5 a 8s).*
+*Figura 15: Métricas de T2 evidenciando 28 pedidos HTTP executados com zero erros em cerca de 5 a 8 segundos.*
 
 ![Preview dos Dados Finais T2](./diagramas/T2_preview_dados_finais.png)
 *Figura 16: Pré-visualização do ficheiro nhtsa_recalls.csv com as contagens de recalls obtidas da API.*
@@ -156,17 +158,16 @@ A transformação **T2** consome `data/processed/specs_limpas.csv` e interroga a
 
 ### 3.3. T3 — Consolidação e Métricas Compósitas (`T3_consolidate_metrics.ktr`)
 
-A transformação **T3** unifica os fluxos de especificações e de segurança:
+A transformação **T3** combina os dados das especificações com os dados de fiabilidade:
 
-1. **Pré-Ordenação e Junção Externa (`Merge join`):** Ambos os fluxos são ordenados por `(make, model_prefix/model, year)`. A junção foi configurada expressamente como `LEFT OUTER JOIN`, preservando integralmente os 28 veículos da base mecânica, independentemente de possuírem ou não registos de recall associados.
-2. **Higienização de Metadados (`Select values`):** Remoção imediata das colunas duplicadas geradas pela stream secundária do join (`make_1`, `model_1`, `year_1`).
-3. **Tratamento de Nulos (`If field value is null`):** Substituição de qualquer valor nulo em `nhtsa_recalls_count` pelo inteiro `0`.
-4. **Cálculo da Métrica Normalizada de Fiabilidade (`Calculator`):** Para comparar a fiabilidade entre modelos com diferentes escalões de potência, injetou-se a constante `const_100 = 100` (`Add constants`) e computou-se:
-   $$\text{recalls\_por\_hp} = \frac{\text{nhtsa\_recalls\_count}}{\text{engine\_hp}}$$
-   $$\text{recalls\_por\_100hp} = \text{recalls\_por\_hp} \times \text{const\_100}$$
-5. **Persistência do Dataset Analítico:** Exportação dos 28 registos e 18 colunas definitivas para `data/processed/bmw_m_performance_fiabilidade.csv`.
+1. **Junção de dados (`Merge join`):** Os fluxos de `specs_limpas.csv` e `nhtsa_recalls.csv` são ordenados por `(make, model, year)`. A junção é feita com a opção `LEFT OUTER JOIN`, o que garante que todos os modelos de especificações são preservados, mesmo que algum não tenha registos de recall na NHTSA.
+2. **Limpeza de colunas (`Select values`):** Eliminação das colunas duplicadas que surgem após a junção (`make_1`, `model_1`, `year_1`).
+3. **Tratamento de nulos (`If field value is null`):** Se a contagem de recalls estiver a nulo, é substituída pelo valor `0`.
+4. **Cálculo da métrica de fiabilidade (`Calculator`):** Para comparar viaturas com potências muito diferentes, divide-se o número de recalls pela potência e multiplica-se por 100 (usando a constante `const_100 = 100`):
+   $$\text{recalls\_por\_100hp} = \left(\frac{\text{nhtsa\_recalls\_count}}{\text{engine\_hp}}\right) \times 100$$
+5. **Gravação:** O ficheiro final com 18 colunas consolidadas é exportado para `data/processed/bmw_m_performance_fiabilidade.csv`.
 
-#### Evidências Visuais da Transformação T3
+#### Evidências Visuais de T3
 
 ![Pipeline Completo T3](./diagramas/T3_pipeline_completo.png)
 *Figura 17: Canvas de T3 exibindo os dois ramos de leitura, a junção central e a exportação final.*
@@ -190,9 +191,9 @@ A transformação **T3** unifica os fluxos de especificações e de segurança:
 
 ### 3.4. T4 — Carga Relacional em PostgreSQL (`T4_load_postgres.ktr`)
 
-A transformação **T4** realiza a persistência física dos dados no motor **PostgreSQL 18** (base de dados `carros_etl`):
+A transformação **T4** carrega o ficheiro consolidado para o motor de base de dados **PostgreSQL 18** (base de dados `carros_etl`):
 
-1. **Definição do Esquema Físico (`sql/01_schema.sql`):**
+1. **Esquema da tabela (`sql/01_schema.sql`):**
    ```sql
    CREATE TABLE IF NOT EXISTS bmw_m_performance_fiabilidade (
        id SERIAL PRIMARY KEY,
@@ -218,14 +219,14 @@ A transformação **T4** realiza a persistência física dos dados no motor **Po
        CONSTRAINT uq_model_year UNIQUE (model, year)
    );
    ```
-2. **Decisões de Modelação Relacional:**
-   - **Chave Primária Surrogate (`id SERIAL`):** Indexação unívoca auto-incremental gerida pelo SGBD.
-   - **Chave Candidata Única (`CONSTRAINT uq_model_year UNIQUE (model, year)`):** Previne duplicações no catálogo caso a fonte contenha registos redundantes com o mesmo ano e designação.
-   - **Preservação de Dados Omissos (`price_usd INT` sem `NOT NULL`):** O modelo **BMW M5 E34 (1988)** não tem preço tabelado na fonte original. Foi expressamente preservado o valor `NULL`, não se recorrendo a valores espúrios (como 0 ou médias) que falseariam as estatísticas de preço.
-   - **Rastreabilidade:** Campo `loaded_at` com timestamp gerado automaticamente pelo SGBD na inserção.
-3. **Idempotência de Carga (`Table output`):** Ativação da opção *Truncate table* (`<truncate>Y</truncate>`) e carregamento em lote (*Batch size* de 1000). Esta decisão assegura que o pipeline pode ser reexecutado de forma limpa sem violar a restrição de unicidade e reduz o número de *round-trips* via JDBC.
+2. **Decisões de Modelação:**
+   - **Chave primária (`id SERIAL`):** Identificador sequencial gerado pelo PostgreSQL.
+   - **Restrição de unicidade (`CONSTRAINT uq_model_year UNIQUE (model, year)`):** Impede a existência de registos duplicados para o mesmo modelo e ano.
+   - **Preço nulo no M5 E34:** O modelo **BMW M5 E34 (1988)** não tem preço no CSV original. A coluna `price_usd` foi definida sem restrição `NOT NULL`, mantendo o valor como `NULL`. Não se inseriu zero nem um preço médio para não adulterar cálculos futuros.
+   - **Auditoria (`loaded_at`):** Regista a data e hora em que a carga foi efetuada.
+3. **Idempotência (`Table output`):** A opção *Truncate table* foi ativada. Desta forma, a tabela é limpa antes da inserção e o pipeline pode ser reexecutado várias vezes sem dar erro de chave duplicada. A inserção é feita em lote (*batch commit* de 1000 registos).
 
-#### Evidências Visuais da Transformação T4
+#### Evidências Visuais de T4
 
 ![DDL Create Table T4](./diagramas/T4_ddl_create_table.png)
 *Figura 23: Execução do script DDL de criação da tabela relacional no PostgreSQL.*
@@ -246,15 +247,21 @@ A transformação **T4** realiza a persistência física dos dados no motor **Po
 
 ### 3.5. T5 — Exportação Analítica JSON e XML (`T5_export_reports.ktr`)
 
-A transformação **T5** encerra o ciclo de disseminação, consumindo a tabela relacional via `Table input` com ordenação prévia (`ORDER BY series ASC, year ASC`):
+A transformação **T5** lê os dados da tabela no PostgreSQL (`ORDER BY series ASC, year ASC`) e gera dois ficheiros de saída distintos:
 
-1. **Duplicação de Fluxo (*Copy data to next steps*):** A definição de `<distribute>N</distribute>` duplica em memória os 28 registos lidos para 56 linhas emitidas, alimentando simultaneamente dois ramos paralelos sem necessidade de realizar queries adicionais à base de dados.
-2. **Ramo A — Catálogo Integral JSON (`Json output`):** Geração do ficheiro `data/output/bmw_m_catalogo_completo.json` com todos os 28 modelos e 18 atributos num único array de objetos (`catalogo_bmw_m` com `nrRowsInBloc = 0`), preservando tipos e valores nulos.
-3. **Ramo B — Resumo Agregado por Série em XML (`Group by` + `XML output`):**
-   - Agrupamento no step `GroupBy` pela chave `series`, sintetizando os 28 veículos nas 6 gamas canónicas da marca e apurando 6 métricas agregadas: contagem de modelos, média de cavalos, média de hp/tonelada, média de hp/litro, soma total de recalls e média de recalls por 100 cv.
-   - Materialização hierárquica em `data/output/bmw_m_resumo_series.xml` com raiz `<relatorio_series_bmw_m>` e elementos repetidores `<serie_analise>`.
+1. **Duplicação de stream (*Copy data to next steps*):** A opção `<distribute>N</distribute>` faz com que cada uma das 28 linhas lidas da base de dados seja copiada para os dois ramos em simultâneo (56 linhas emitidas em memória), evitando fazer duas consultas à base de dados.
+2. **Ramo JSON (`Json output`):** Exporta todos os 28 modelos e os seus 18 atributos num único array JSON (`data/output/bmw_m_catalogo_completo.json`). Este formato é adequado para consumo por aplicações Web ou APIs.
+3. **Ramo XML (`Group by` + `XML output`):** O step `GroupBy` agrega os dados pelo campo `series` e calcula 6 indicadores para cada uma das 6 séries:
+   - Contagem de modelos (`COUNT_ALL`)
+   - Média de potência (`AVERAGE`)
+   - Média de hp/tonelada (`AVERAGE`)
+   - Média de hp/litro (`AVERAGE`)
+   - Soma total de recalls da série (`SUM`)
+   - Média de recalls por 100 cv (`AVERAGE`)
+   
+   O step `XML output` formata os resultados num documento hierárquico com o elemento raiz `<relatorio_series_bmw_m>` e elementos `<serie_analise>` (`data/output/bmw_m_resumo_series.xml`).
 
-#### Evidências Visuais da Transformação T5
+#### Evidências Visuais de T5
 
 ![Pipeline Completo T5](./diagramas/T5_pipeline_completo.png)
 *Figura 28: Canvas de T5 exibindo a bifurcação em fluxo para exportação paralela em JSON e XML.*
@@ -272,14 +279,14 @@ A transformação **T5** encerra o ciclo de disseminação, consumindo a tabela 
 
 ### 3.6. Orquestração Global (`J_main.kjb`)
 
-O job mestre **`J_main.kjb`** assegura a execução atómica e automatizada de todo o pipeline:
+O job **`J_main.kjb`** controla a execução sequencial do início ao fim:
 
-1. **Fluxo Sequencial Determinístico:** `START` $\rightarrow$ `T1` $\rightarrow$ `T2` $\rightarrow$ `T3` $\rightarrow$ `T4` $\rightarrow$ `T5` $\rightarrow$ `Sucesso ETL`. Cada etapa só arranca após a anterior terminar com estado de sucesso comprovado (`result = true` e `errors = 0`).
-2. **Mecanismo *Fail-Fast* Centralizado:** De cada um dos 5 passos `TRANS` parte um hop condicional de erro (`evaluation = N`, `<unconditional>N</unconditional>`) a convergir no step comum **`Abortar por Erro`** (`ABORT`). Se ocorrer uma falha crítica de rede ou de integridade, o pipeline é interrompido de imediato, protegendo a base de dados de estados corrompidos e impedindo a emissão de relatórios parciais.
-3. **Portabilidade Universal:** Todos os passos `TRANS` utilizam a variável nativa de contexto `${Internal.Entry.Current.Directory}/../transformations/<ficheiro>.ktr`, garantindo que o pipeline corre de forma autónoma em qualquer diretório ou máquina sem alteração de caminhos.
-4. **Métricas de Execução no Kitchen CLI:** O job corre ponta a ponta em cerca de **10.9 segundos** com código de saída 0 (`Errors = 0`), consumindo as 28 chamadas síncronas à API da NHTSA aproximadamente 8.8 segundos do tempo total.
+1. **Caminho normal:** Inicia no step `START` e executa as transformações pela ordem estrita: `T1` $\rightarrow$ `T2` $\rightarrow$ `T3` $\rightarrow$ `T4` $\rightarrow$ `T5` $\rightarrow$ `Sucesso ETL`. Cada etapa só arranca se a anterior terminar com sucesso (`result = true`).
+2. **Tratamento de falhas (*Fail-Fast*):** De cada transformação (`T1` a `T5`) existe um hop de erro (condição de falha) ligado ao step comum **`Abortar por Erro`** (`ABORT`). Se ocorrer uma falha (por exemplo, ausência de ligação à Internet em T2 ou erro de base de dados em T4), o job para de imediato e não avança para as etapas seguintes.
+3. **Portabilidade:** Todos os caminhos nos steps de transformação usam a variável `${Internal.Entry.Current.Directory}/../transformations/<ficheiro>.ktr`. Desta forma, o projeto funciona em qualquer computador ou pasta sem ser preciso alterar caminhos absolutos.
+4. **Tempo de execução:** A execução completa do job através do Pentaho Kitchen (`Kitchen.bat`) demora cerca de **10 a 11 segundos**, dos quais cerca de 8 segundos são utilizados pelas 28 consultas à API da NHTSA.
 
-#### Evidências Visuais do Job Global J_main
+#### Evidências Visuais de J_main
 
 ![Pipeline Completo J_main](./diagramas/J_main_pipeline_completo.png)
 *Figura 32: Canvas do Job J_main no Spoon com os hops verdes sequenciais e os 5 hops vermelhos para o Abortar por Erro.*
@@ -294,9 +301,9 @@ O job mestre **`J_main.kjb`** assegura a execução atómica e automatizada de t
 
 ## 4. Análise dos Resultados
 
-A tabela seguinte apresenta os valores apurados pelo pipeline de ETL e materializados no ficheiro XML de saída (`data/output/bmw_m_resumo_series.xml`):
+A tabela seguinte apresenta os valores reais obtidos no ficheiro gerado `data/output/bmw_m_resumo_series.xml`:
 
-| Série BMW M | Modelos Analisados | Potência Média (cv) | Potência Específica Média (cv/litro) | Rácio Médio Peso/Potência (cv/tonelada) | Total de Recalls Registados | Rácio Médio de Recalls por 100 cv |
+| Série BMW M | Modelos Analisados | Potência Média (cv) | Potência Específica Média (cv/litro) | Relação Média Peso/Potência (cv/tonelada) | Total de Recalls Registados | Rácio Médio de Recalls por 100 cv |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Série 2 M** | 4 | 422.00 | 141.64 | 270.65 | 5 | 0.2925 |
 | **Série 3 M** | 9 | 395.00 | 127.63 | 253.75 | **22** | **0.6467** |
@@ -305,18 +312,49 @@ A tabela seguinte apresenta os valores apurados pelo pipeline de ETL e materiali
 | **Série 6 M** | 2 | 533.00 | 114.42 | 299.60 | 0 | **0.0000** |
 | **Série 8 M** | 1 | **600.00** | 136.52 | **318.30** | 1 | 0.1700 |
 
-### Interpretação dos Resultados Obtidos
+### Interpretação dos Dados
 
-Os dados obtidos refutam a hipótese de que o aumento do rendimento volumétrico e a complexidade mecânica degradam proporcionalmente a fiabilidade geral do automóvel:
+1. **Concentração de recalls na Série 3 M:** A Série 3 M concentra 22 dos 36 recalls registados na amostra (cerca de 61%). Esta concentração deve-se a modelos de grande volume de produção (como as gerações E46 e E90/E92), que partilham componentes com as versões comuns da Série 3 e foram alvo de grandes campanhas da NHTSA (por exemplo, substituição de airbags Takata e cablagem de ventilação). Não se trata, portanto, de falhas no motor propriamente dito.
+2. **Fiabilidade das Séries 5 M e 6 M:** As séries de topo, com motores de maior cilindrada (V8 e V10 atmosféricos ou bi-turbo) e potências médias superiores a 500 cv, registam quase zero recalls (1 na Série 5 e 0 na Série 6), mostrando boa fiabilidade em termos de segurança oficial.
+3. **Potência específica da Série 4 M:** A Série 4 M apresenta a maior potência específica média (**163.31 cv/litro**), devido aos modernos motores 3.0L bi-turbo (S55 e S58). Apesar de ter um rendimento volumétrico muito superior aos modelos antigos atmosféricos, o seu rácio de recalls (0.3750) é inferior ao da Série 3 M, mostrando que os motores sobrealimentados modernos mantêm um controlo de qualidade aceitável.
 
-1. **Volume de Produção versus Fiabilidade Mecânica Pura:** A **Série 3 M** lidera destacadamente em número de recalls (22 ocorrências em 9 modelos, rácio de 0.6467 recalls/100cv). Contudo, a análise dos boletins governamentais da NHTSA revela que as falhas se devem a campanhas em grande escala que afetaram plataformas partilhadas (especialmente os chassis E46 e E90/E92), tais como módulos de airbag do fornecedor Takata e anomalias na cablagem do ventilador do habitáculo, e não a quebras mecânicas no trem de força (*powertrain*).
-2. **Robustez das Gamas Executivas de Alta Cilindrada:** As famílias executivas (**Série 5 M** e **Série 6 M**), caracterizadas por mecânicas de grande porte com potências médias acima dos 500 cv (como o bloco S85 V10 naturalmente aspirado e o S63 V8 bi-turbo), apresentam taxas de recalls praticamente nulas (1 recall na Série 5 e 0 na Série 6), evidenciando elevados controlos de qualidade em segmentos de topo.
-3. **Evolução da Sobrealimentação Bi-Turbo:** A **Série 4 M** atinge a potência específica média mais agressiva do estudo (**163.31 cv/litro**), impulsionada pelos motores S55 e S58 3.0L bi-turbo. Não obstante este expressivo rendimento por litro, o seu rácio ponderado de fiabilidade (0.3750) manteve-se substancialmente mais reduzido do que o da Série 3, o que comprova que a gestão eletrónica e as tolerâncias térmicas modernas permitiram aumentar significativamente a performance sem acarretar um acréscimo proporcional de defeitos de homologação.
+### Limitações do Estudo
+
+- **Granularidade da consulta NHTSA:** A API da NHTSA recebe o modelo genérico (por exemplo, "M3" e ano 2003) e devolve as campanhas que afetam essa linha de modelos nos Estados Unidos. Não distingue edições específicas (como CSL ou GTS) de modelos normais.
+- **Mercado geográfico:** Os recalls dizem respeito exclusivamente ao mercado norte-americano. Um valor de 0 recalls não garante a ausência total de avarias mecânicas no veículo.
+- **Rácio exploratório:** O indicador `recalls_por_100hp` é uma métrica exploratória para contextualizar o volume de chamadas pela potência, não sendo uma medida direta da probabilidade de avaria mecânica.
 
 ---
 
-## 5. Conclusão
+## 5. Demonstração em Vídeo
 
-O projeto prático cumpriu na íntegra todos os requisitos funcionais e pedagógicos definidos para o Trabalho Prático 1 da unidade curricular de Integração de Sistemas de Informação. 
+Conforme solicitado no enunciado, foi preparado um guião detalhado para uma apresentação em vídeo de 3 a 5 minutos, disponível em `docs/GUIAO_VIDEO.md`.
 
-O pipeline concebido assegura a ingestão robusta de fontes estruturadas e semiestruturadas (CSV e REST/JSON), segrega anomalias para quarentena sem adulterar métricas derivadas, preserva com fidelidade os valores omissos no modelo relacional em PostgreSQL e materializa artefactos analíticos multiformato (JSON exaustivo e XML agregado). A integração de todo o fluxo no job `J_main.kjb`, apoiada em caminhos relativos portáteis e numa política de paragem imediata por erro (*fail-fast*), garante uma execução totalmente automatizada, determinística e reproduzível em cerca de 10 segundos com taxa de erro nula.
+* **Link da gravação:** *(Inserir URL final da gravação após publicação no e-learning / YouTube não listado)*
+* **QR Code:** *(Inserir imagem do QR Code de acesso direto ao vídeo)*
+
+O guião organiza a gravação em 6 blocos: apresentação do problema, verificação de T1 e da quarentena, demonstração da chamada REST em T2, junção e métricas em T3, consulta dos dados no PostgreSQL em T4, inspeção dos ficheiros JSON e XML em T5, e execução global do Job `J_main` no Spoon/Kitchen.
+
+---
+
+## 6. Conclusão e Trabalhos Futuros
+
+O trabalho prático atingiu todos os objetivos definidos para o TP1 da unidade curricular de Integração de Sistemas de Informação:
+- Foram integrados dados de ficheiros locais (CSV) e de um serviço Web remoto em tempo real (API REST NHTSA em JSON).
+- Foram aplicadas operações de limpeza, Expressões Regulares, validação com desvio para quarentena e cálculos com tipos numéricos adequados.
+- Foi garantida a carga idempotente numa base de dados relacional PostgreSQL 18 e gerados artefactos finais em formatos canónicos (JSON e XML).
+- O Job mestre `J_main` orquestra todas as etapas com tolerância a falhas e caminhos relativos portáteis, concluindo a execução em cerca de 10 segundos.
+
+Como trabalhos futuros, identificam-se as seguintes melhorias:
+1. Alargar a base de especificações a outras marcas concorrentes (como Mercedes-AMG e Audi Sport) para permitir comparações entre fabricantes.
+2. Integrar dados de preços do mercado europeu (em euros) para complementar a análise económica.
+3. Automatizar a execução periódica do pipeline através de um agendador (*cron* ou Apache Airflow) e construir um *dashboard* de visualização (ex.: em Grafana ou Power BI) ligado diretamente ao PostgreSQL.
+
+---
+
+## 7. Referências Bibliográficas
+
+1. **Pentaho Community:** *Pentaho Data Integration (Kettle) Documentation*. Hitachi Vantara, 2024. [https://help.hitachi-vantara.com/](https://help.hitachi-vantara.com/)
+2. **NHTSA:** *NHTSA Recalls API Documentation*. National Highway Traffic Safety Administration, U.S. Department of Transportation. [https://api.nhtsa.gov/](https://api.nhtsa.gov/)
+3. **PostgreSQL Global Development Group:** *PostgreSQL 18 Documentation*. 2024. [https://www.postgresql.org/docs/](https://www.postgresql.org/docs/)
+4. **Ferreira, L. & Ribeiro, Ó.:** *Enunciado do Trabalho Prático 1 — Integração de Sistemas de Informação*. IPCA / EST, 2026/27.
