@@ -170,4 +170,4 @@ Na falha controlada, `Pan.bat` terminou com código de processo 0 apesar do erro
 - [ ] Vídeo publicado e acessível.
 - [ ] QR Code real inserido.
 - [ ] PDF final revisto.
-- [ ] Branch publicada no GitHub.
+- [x] Branch publicada no GitHub.
