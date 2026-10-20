@@ -272,7 +272,7 @@ Os outputs atuais adiam a abertura dos ficheiros até receberem a primeira linha
 
 *Figura 30 — Métricas de uma execução anterior de T5.*
 
-![Preview dos Ficheiros JSON e XML T5](./diagramas/T5_preview_json_xml.png)
+![Preview dos Ficheiros JSON e XML T5](./diagramas/T5_preview_json.png)
 
 *Figura 31 — Preview anterior dos relatórios; atualizar para médias decimais e cobertura NHTSA.*
 

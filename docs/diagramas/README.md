@@ -60,7 +60,7 @@ Não existe `T4_config_table_output.png`. O inventário anterior que o mencionav
 | `T5_pipeline_completo.png` | Canvas do fluxo; necessita nova captura após os campos auxiliares. |
 | `T5_metricas_execucao.png` | Métricas de uma execução anterior. |
 | `T5_config_groupby.png` | GroupBy anterior à correção de `media_hp` e cobertura NHTSA. |
-| `T5_preview_json_xml.png` | Preview dos artefactos anteriores à revisão. |
+| `T5_preview_json.png` | Preview dos artefactos anteriores à revisão. |
 
 ## Job
 

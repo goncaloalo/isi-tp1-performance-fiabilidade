@@ -29,7 +29,7 @@ Caso as alterações experimentais em curso noutra branch venham a ser adotadas 
    - *Motivo:* Se a lógica de construção de URLs ou de validação de códigos HTTP for alterada/simplificada, os diálogos e o fluxo do canvas devem refletir a nova estrutura de steps.
 2. **`T4_pipeline_completo.png` e `T4_metricas_execucao.png`:**
    - *Motivo:* Se o step de carregamento passar de `Table output` (com *Truncate*) para outro operador (como `Insert / Update`), é necessário capturar a nova janela de configuração e a respetiva grelha de execução.
-3. **`T5_config_groupby.png` e `T5_preview_json_xml.png`:**
+3. **`T5_config_groupby.png` e `T5_preview_json.png`:**
    - *Motivo:* Se os nomes dos campos calculados ou as precisões decimais forem reajustados, o diálogo do `GroupBy` e o preview dos ficheiros de saída devem ser atualizados para total correspondência com os dados em disco.
 4. **`J_main_pipeline_completo.png` e `J_main_metricas_execucao.png`:**
    - *Motivo:* Qualquer alteração nos nomes das transformações ou reexecução do job exige um novo print do canvas e do histórico de execução com visto verde.
@@ -86,7 +86,7 @@ Para enriquecer a entrega académica e o relatório, devem ser preparadas as seg
 - `T5_pipeline_completo.png` — Canvas de T5 exibindo a bifurcação de stream para JSON e XML.
 - `T5_config_groupby.png` — Diálogo do step *GroupBy* com as 6 fórmulas de agregação por série.
 - `T5_metricas_execucao.png` — Painel Step Metrics comprovando 28 lidos, 56 emitidos e 0 erros.
-- `T5_preview_json_xml.png` — Visualização comparativa do catálogo JSON e do resumo XML gerados em `data/output/`.
+- `T5_preview_json.png` — Visualização comparativa do catálogo JSON e do resumo XML gerados em `data/output/`.
 
 ### Job J_main (3 imagens)
 - `J_main_pipeline_completo.png` — Canvas de orquestração sequencial com os hops verdes e os 5 hops vermelhos de falha.
