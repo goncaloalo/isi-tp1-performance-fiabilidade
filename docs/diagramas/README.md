@@ -1,173 +1,92 @@
-# Inventário de Diagramas e Capturas do Spoon (Pentaho PDI)
+# Inventário de diagramas e capturas
 
-Este diretório armazena todos os diagramas de arquitetura e capturas de ecrã (*prints*) das transformações e jobs desenvolvidos no Pentaho Kettle (Spoon), a incorporar no **Relatório Final** (Secções 4 e 5) e na apresentação da defesa individual.
+Este diretório contém apenas capturas reais já existentes. O inventário foi confrontado com o sistema de ficheiros em 20/10/2026.
 
----
+Algumas capturas antecedem as correções finais de T1, T2, T4 e T5. Não devem ser usadas como prova da nova configuração sem serem repetidas. A implementação atual encontra-se nos ficheiros `.ktr` e `.kjb`.
 
-## 1. Convenção de Nomenclatura e Formato
+## T1 — especificações
 
-- **Formato:** `.png` (alta fidelidade e nitidez de texto).
-- **Resolução recomendada:** Mínimo de 1920x1080 (ou captura em janela maximizada com texto legível).
-- **Padrão de nome:** `<etapa>_<descricao_do_print>.png` (ex.: `01_T1_canvas_completo.png`).
+| Ficheiro | Conteúdo |
+|---|---|
+| `T1_pipeline_completo.png` | Canvas do fluxo T1 anterior à validação final do lookup. |
+| `T1_metricas_execucao.png` | Métricas de 29 lidos, 1 rejeitado e 28 válidos. |
+| `T1_preview_dados_finais.png` | Pré-visualização de `specs_limpas.csv`. |
+| `T1_config_string_operations.png` | Normalização de strings. |
+| `T1_config_regex_versao.png` | Extração de versão. |
+| `T1_config_tratar_nulos.png` | Preenchimento de `versao = Base`. |
+| `T1_config_filter_peso.png` | Filtro original de peso; necessita nova captura com todas as regras. |
+| `T1_config_regex_prefixo.png` | Extração de `model_prefix`. |
+| `T1_config_calculator_metricas.png` | Cálculos mecânicos. |
+| `T1_config_stream_lookup.png` | Lookup de série e carroçaria. |
 
----
+## T2 — NHTSA
 
-## 2. Lista de Capturas Consolidadas por Módulo (Secção 4 do Relatório)
+| Ficheiro | Conteúdo |
+|---|---|
+| `T2_pipeline_completo.png` | Canvas anterior à introdução da validação HTTP/JSON. |
+| `T2_metricas_execucao.png` | Métricas de uma execução anterior. |
+| `T2_preview_dados_finais.png` | Preview anterior aos campos de rastreabilidade. |
+| `T2_config_javascript_url.png` | Construção do URL. |
+| `T2_config_rest_client.png` | REST Client e campos de resposta/estado. |
+| `T2_config_json_input.png` | Parser anterior; foi substituído pela validação JavaScript explícita. |
 
-### 4.1. Transformação T1: `T1_extract_specs.ktr` (Especificações Automóveis)
-Artefactos gráficos consolidados e padronizados para integração na **Secção 4.1 do Relatório**:
+## T3 — consolidação
 
-| Ficheiro Alvo | Elemento no Spoon | Descrição do Conteúdo a Integrar no Relatório |
-| :--- | :--- | :--- |
-| `T1_pipeline_completo.png` | Canvas Global | Visão panorâmica de todo o fluxo sequencial com vistos verdes em todos os steps e desvio de quarentena. |
-| `T1_metricas_execucao.png` | Execution Results | Painel *Step Metrics* comprovando 29 registos lidos, 1 rejeitado no filtro de peso e 28 exportados com 0 erros. |
-| `T1_preview_dados_finais.png` | Preview Data | Grelha de dados finais com os 28 modelos, colunas calculadas e metadados de séries e carroçarias preenchidos. |
-| `T1_config_string_operations.png` | Dialog: *Limpar Strings* | Operações sintáticas (`trim both` e `upper` em `make`; `trim both` em `model`). |
-| `T1_config_regex_versao.png` | Dialog: *Extrair versao via Regex* | Expressão regular `.*?\b(Competition\|CSL\|GTS\|CS\|Touring)\b.*` e campo de captura `versao`. |
-| `T1_config_tratar_nulos.png` | Dialog: *Tratar nulos* | Imputação semântica de `'Base'` no campo `versao` quando nulo. |
-| `T1_config_filter_peso.png` | Dialog: *Validar peso* | Condição `weight_kg IS NOT NULL` com desvio dos registos inválidos para quarentena (`Rejeitados`). |
-| `T1_config_regex_prefixo.png` | Dialog: *Extrair prefixo modelo* | Expressão regular `^(M\d)\b.*` para isolar a chave de junção `model_prefix`. |
-| `T1_config_calculator_metricas.png` | Dialog: *Calculator* | Cálculos encadeados de `peso_ton`, `litros`, `hp_por_tonelada` e `hp_por_litro` via `const_1000`. |
-| `T1_config_stream_lookup.png` | Dialog: *Mapear series e body_type* | Junção por `model_prefix` com `series_lookup.csv` trazendo `series` e `body_type`. |
+| Ficheiro | Conteúdo |
+|---|---|
+| `T3_pipeline_completo.png` | Canvas anterior à remoção de `Tratar recalls nulos`. |
+| `T3_metricas_execucao.png` | Métricas de execução anterior. |
+| `T3_preview_dados_finais.png` | Preview anterior à semântica de nulos revista. |
+| `T3_config_merge_join.png` | Configuração do `LEFT OUTER JOIN`, ainda aplicável. |
+| `T3_config_select_values.png` | Remoção de campos; deve ser atualizada para os metadados NHTSA. |
+| `T3_config_calculator_metricas.png` | Fórmula de `recalls_por_100hp`. |
 
----
+## T4 — PostgreSQL
 
-### 4.2. Transformação T2: Ingestão de Dados de Recalls (API NHTSA)
+| Ficheiro | Conteúdo |
+|---|---|
+| `T4_pipeline_completo.png` | Canvas anterior à substituição de `Table Output` por `Insert/Update`. |
+| `T4_metricas_execucao.png` | Métricas de uma execução anterior. |
+| `T4_config_csv_input.png` | Entrada CSV, ainda aplicável. |
+| `T4_ddl_create_table.png` | Evidência de DDL anterior; o script atual tem restrições adicionais. |
+| `T4_dados_postgres.png` | Consulta a dados carregados numa execução anterior. |
 
-A Transformação T2 é responsável pela extração dinâmica de métricas de segurança rodoviária através do consumo da API pública da NHTSA (*National Highway Traffic Safety Administration*). O objetivo desta etapa consiste em obter o histórico oficial de campanhas de recall por modelo e ano de fabrico, enriquecendo o dataset de especificações mecânicas.
+Não existe `T4_config_table_output.png`. O inventário anterior que o mencionava estava incorreto e a própria configuração deixou de usar `Table Output`.
 
-#### 1. Arquitetura do Pipeline ETL
-O fluxo é composto por 9 etapas sequenciais:
-1. **Leitura e Seleção:** Ingestão de `specs_limpas.csv` e isolamento dos atributos-chave de pesquisa (`make`, `model_prefix` renomeado para `model`, `year`).
-2. **Ordenação e Deduplicação:** Ordenação composta (`Sort rows`) seguida de remoção de redundâncias (`Unique rows`), assegurando que apenas combinações únicas de veículo/ano realizam pedidos HTTP, mitigando sobrecarga na rede e latência desnecessária.
-3. **Construção Dinâmica do Endpoint:** Script JavaScript encarregue de codificar parâmetros e estruturar o URL REST.
-4. **Consumo da API Externa:** Invocação HTTP GET via `REST client`.
-5. **Parsing e Extração JSON:** Desserialização do payload JSON através de JSONPath (`$.Count`) no step `JSON input`.
-6. **Projeção e Persistência:** Filtragem das variáveis auxiliares (`Select values`) e exportação do artefacto limpo `nhtsa_recalls.csv`.
+## T5 — exportação
 
-#### 2. Mapeamento de Artefactos de Imagem (`prints/` e `docs/diagramas/`)
+| Ficheiro | Conteúdo |
+|---|---|
+| `T5_pipeline_completo.png` | Canvas do fluxo; necessita nova captura após os campos auxiliares. |
+| `T5_metricas_execucao.png` | Métricas de uma execução anterior. |
+| `T5_config_groupby.png` | GroupBy anterior à correção de `media_hp` e cobertura NHTSA. |
+| `T5_preview_json_xml.png` | Preview dos artefactos anteriores à revisão. |
 
-| Ficheiro Alvo | Elemento no Spoon | Descrição do Conteúdo a Integrar no Relatório |
-| :--- | :--- | :--- |
-| `T2_pipeline_completo.png` | Canvas Global | Visão geral do pipeline com os 9 steps e status de execução com sucesso. |
-| `T2_metricas_execucao.png` | Execution Results | Métricas de execução (28 tuplos processados, 0 erros, ~5.3s). |
-| `T2_config_javascript_url.png` | Dialog: *Construir URL NHTSA* | Configuração do step de concatenação e encoding do URL via JavaScript. |
-| `T2_config_rest_client.png` | Dialog: *Chamar API Recalls* | Configuração da chamada REST (HTTP GET dinâmico). |
-| `T2_config_json_input.png` | Dialog: *Extrair recalls JSON* | Configuração do separador Fields com a expressão JSONPath `$.Count`. |
-| `T2_preview_dados_finais.png` | Preview Data | Grelha de validação dos dados finais com os recalls extraídos (`nhtsa_recalls.csv`). |
+## Job
 
-#### 3. Excertos Técnicos de Configuração e Código
+| Ficheiro | Conteúdo |
+|---|---|
+| `J_main_pipeline_completo.png` | Sequência T1–T5 e hops de erro. |
+| `J_main_metricas_execucao.png` | Execução completa anterior à revisão. |
+| `J_main_config_trans.png` | Caminho relativo de uma entrada `TRANS`. |
 
-- **Script JavaScript de Construção do URL (`Construir URL NHTSA`):**
-```javascript
-var url_recalls = "https://api.nhtsa.gov/recalls/recallsByVehicle?make=" 
-                  + encodeURIComponent(make) 
-                  + "&model=" 
-                  + encodeURIComponent(model) 
-                  + "&modelYear=" 
-                  + year;
-```
+## Ficheiros anteriormente anunciados mas inexistentes
 
----
+Os seguintes nomes foram removidos do inventário porque não existem:
 
-### 4.3. Transformação T3: Consolidação e Métricas Finais (`T3_consolidate_metrics.ktr`)
+- `T4_config_table_output.png`;
+- `21_arquitetura_global_etl.png`;
+- `22_modelo_dados_pgadmin.png`.
 
-A Transformação T3 consolida os dados de especificações técnicas (`specs_limpas.csv`) com o histórico de fiabilidade e segurança rodoviária da NHTSA (`nhtsa_recalls.csv`). Esta etapa calcula indicadores analíticos combinados e gera o artefacto tabular final do projeto.
+Não foram criadas imagens substitutas artificiais.
 
-#### 1. Arquitetura do Pipeline ETL
-O fluxo é composto por 10 steps organizados em 2 ramos concorrentes e um tronco de consolidação:
-1. **Ramo Superior (Especificações):** Ingestão de `specs_limpas.csv` (`CSV file input` com *Lazy Conversion* desativada) seguido de ordenação multi-chave (`Sort rows` por `make ASC`, `model_prefix ASC`, `year ASC`).
-2. **Ramo Inferior (Recalls NHTSA):** Ingestão de `nhtsa_recalls.csv` seguido de ordenação multi-chave (`Sort rows` por `make ASC`, `model ASC`, `year ASC`).
-3. **Junção Ordenada (`Merge join`):** Realização de um `LEFT OUTER JOIN` garantindo a preservação integral dos registos mecânicos, utilizando a chave composta `(make, model_prefix, year) = (make, model, year)`.
-4. **Limpeza de Metadados (`Select values`):** Remoção das colunas redundantes geradas na junção (`make_1`, `model_1`, `year_1`).
-5. **Imputação de Valores Ausentes (`If field value is null`):** Substituição de valores nulos em `nhtsa_recalls_count` por `0`, refletindo ausência de registo de campanhas de recall.
-6. **Cálculo de Indicadores de Fiabilidade:**
-   - Injeção de constante (`Add constants`): `const_100 = 100` (Number).
-   - Cálculos analíticos (`Calculator`):
-     - Rácio base de recalls por unidade de potência: `recalls_por_hp = nhtsa_recalls_count / engine_hp`
-     - Métrica normalizada de fiabilidade: `recalls_por_100hp = recalls_por_hp * const_100`
-7. **Persistência Final (`Text file output`):** Exportação do dataset analítico consolidado para `data/processed/bmw_m_performance_fiabilidade.csv` (28 registos, formato delimitado por vírgula com cabeçalho UTF-8).
+## Capturas a atualizar antes da entrega
 
-#### 2. Mapeamento de Artefactos de Imagem (`prints/` e `docs/diagramas/`)
+1. T1: filtro com todas as regras e validação do lookup.
+2. T2: canvas final, validação HTTP/JSON e preview com estados/nulos.
+3. T3: canvas sem imputação de zero.
+4. T4: `Insert/Update` e teste da ligação por variáveis.
+5. T5: query com cast decimal, GroupBy e XML final.
+6. J_main: execução final depois de PostgreSQL estar configurado.
 
-| Ficheiro Alvo | Elemento no Spoon | Descrição do Conteúdo a Integrar no Relatório |
-| :--- | :--- | :--- |
-| `T3_pipeline_completo.png` | Canvas Global | Canvas global no Spoon com os dois ramos concorrentes, a junção central e visto verde em todos os 10 steps. |
-| `T3_metricas_execucao.png` | Execution Results | Painel Step Metrics comprovando a leitura das duas fontes, junção de 28 tuplos e gravação sem erros (~0.5s). |
-| `T3_config_merge_join.png` | Dialog: *Juntar specs e recalls* | Configuração do Merge Join exibindo a modalidade LEFT OUTER JOIN e as chaves de correspondência de ambos os passos. |
-| `T3_config_select_values.png` | Dialog: *Limpar campos duplicados* | Configuração da remoção das colunas duplicadas da stream da direita (`make_1`, `model_1`, `year_1`). |
-| `T3_config_calculator_metricas.png` | Dialog: *Calcular metricas fiabilidade* | Configuração das operações de divisão e multiplicação no Calculator. |
-| `T3_preview_dados_finais.png` | Preview Data | Pré-visualização da grelha de dados consolidada com todos os atributos mecânicos, identificadores de série e rácios calculados. |
-
-#### 3. Excertos Técnicos de Configuração e Cálculos
-
-- **Configuração da Junção Ordenada (`Merge join`):**
-  - Tipo: `LEFT OUTER`
-  - Chaves Stream 1 (`Ordenar specs`): `make`, `model_prefix`, `year`
-  - Chaves Stream 2 (`Ordenar recalls`): `make`, `model`, `year`
-- **Fórmulas Aritméticas de Fiabilidade (`Calculator` com `const_100 = 100`):**
-  - `recalls_por_hp = nhtsa_recalls_count / engine_hp` (Divisão `A / B`)
-  - `recalls_por_100hp = recalls_por_hp * const_100` (Multiplicação `A * B`)
-
-
----
-
-### 4.4. Transformação T4: Carga Relacional em PostgreSQL (`T4_load_postgres.ktr`)
-
-A Transformação T4 concretiza o carregamento da base de dados relacional em PostgreSQL (`carros_etl`), garantindo a integridade dos dados e a persistência do modelo físico final.
-
-#### Mapeamento de Artefactos de Imagem (`prints/` e `docs/diagramas/`)
-
-| Ficheiro Alvo | Elemento no Spoon / pgAdmin | Descrição do Conteúdo a Integrar no Relatório |
-| :--- | :--- | :--- |
-| `T4_pipeline_completo.png` | Canvas Global | Visão global do fluxo de carga com os passos *Ler dataset consolidado CSV* e *Carregar PostgreSQL* com visto verde de sucesso. |
-| `T4_config_csv_input.png` | Dialog: *Ler dataset consolidado CSV* | Configuração do step `CsvInput` com caminho relativo `${Internal.Entry.Current.Directory}/../../data/processed/bmw_m_performance_fiabilidade.csv` e tipagem explícita. |
-| `T4_config_table_output.png` | Dialog: *Carregar PostgreSQL* | Configuração do step `TableOutput` com opção *Truncate table* ativada, batch commit de 1000 e mapeamento explícito dos 18 campos. |
-| `T4_ddl_create_table.png` | Editor SQL / pgAdmin | Execução do DDL (`sql/01_schema.sql`) no PostgreSQL com criação de chave primária, chave candidata única e tipos adequados. |
-| `T4_metricas_execucao.png` | Execution Results | Painel *Step Metrics* comprovando a leitura de 28 registos no CSV e inserção de 28 linhas na tabela PostgreSQL com 0 erros (`E=0`). |
-| `T4_dados_postgres.png` | Data Output / pgAdmin | Consulta SQL de validação (`SELECT * FROM bmw_m_performance_fiabilidade`) evidenciando os 28 registos persistidos com timestamp `loaded_at`. |
-
----
-
-### 4.5. Transformação T5: Exportações Analíticas Heterogéneas (`T5_export_reports.ktr`)
-
-A Transformação T5 conclui a **Fase 4 (Exportação e Disseminação)**, extraindo os dados relacionais do PostgreSQL e materializando relatórios analíticos em dois formatos heterogéneos: um catálogo integral em formato JSON (`bmw_m_catalogo_completo.json`) e um resumo executivo com agregações por série em formato XML (`bmw_m_resumo_series.xml`).
-
-#### Mapeamento de Artefactos de Imagem (`prints/` e `docs/diagramas/`)
-
-| Ficheiro Alvo | Elemento no Spoon / IDE | Descrição do Conteúdo a Integrar no Relatório |
-| :--- | :--- | :--- |
-| `T5_pipeline_completo.png` | Canvas Global | Visão global do fluxo de exportação com duplicação em fluxo (*Copy data to next steps*) para o ramo JSON e ramo de agregação XML, com visto verde de sucesso em todos os steps. |
-| `T5_config_groupby.png` | Dialog: *Agregar por Serie* | Configuração do step `GroupBy` com o agrupamento por `series` e as 6 operações de agregação (contagem de modelos, médias de potência e rácios mecânicos, soma de recalls e média normalizada de fiabilidade). |
-| `T5_metricas_execucao.png` | Execution Results | Painel *Step Metrics* comprovando a leitura de 28 tuplos do PostgreSQL, duplicação para 56 linhas emitidas, gravação de 28 registos no JSON e agregação de 6 séries no XML com 0 erros (`E=0`). |
-| `T5_preview_json_xml.png` | Visualização de Ficheiros | Pré-visualização dos artefactos gerados em `data/output/`: catálogo estruturado em JSON e relatório hierárquico com elementos `<serie_analise>` em XML. |
-
----
-
-### 4.6. Job de Orquestração Global (`J_main.kjb`)
-
-O Job global `J_main.kjb` coordena a execução sequencial ponta a ponta de todo o pipeline ETL (T1 a T5) com controlo de fluxo condicional, tratamento centralizado de falhas (*fail-fast*) e validação de sucesso.
-
-#### Mapeamento de Artefactos de Imagem (`prints/` e `docs/diagramas/`)
-
-| Ficheiro Alvo | Elemento no Spoon / CLI | Descrição do Conteúdo a Integrar no Relatório |
-| :--- | :--- | :--- |
-| `J_main_pipeline_completo.png` | Canvas Global | Visão panorâmica do job no Spoon com a esteira sequencial (START $\rightarrow$ T1 $\rightarrow$ T2 $\rightarrow$ T3 $\rightarrow$ T4 $\rightarrow$ T5 $\rightarrow$ Sucesso ETL), conexões verdes de sucesso e os 5 hops vermelhos de erro convergindo no step comum *Abortar por Erro*, todos com visto verde de execução. |
-| `J_main_metricas_execucao.png` | Execution Results / Logging | Painel *Job Execution Results / Logging* comprovando a execução sequencial sem falhas das 5 transformações, tempo de execução global (~10s) e resultado terminal `result=[true]` com 0 erros. |
-| `J_main_config_trans.png` | Dialog: *Transformation Entry* | Diálogo de configuração de um step de transformação (ex.: *T1 - Especificações*), ilustrando a definição de caminho relativo portátil `${Internal.Entry.Current.Directory}/../transformations/T1_extract_specs.ktr`, execução atómica local e propagação de parâmetros. |
-
----
-
-### 2.7. Arquitetura e Base de Dados
-| Ficheiro Alvo | Ferramenta | Descrição do Conteúdo a Capturar |
-| :--- | :--- | :--- |
-| `21_arquitetura_global_etl.png` | Diagrama (Mermaid/Draw.io) | Diagrama conceitual da arquitetura de 3 fases (Raw $\rightarrow$ Staging $\rightarrow$ PostgreSQL $\rightarrow$ Exports). |
-| `22_modelo_dados_pgadmin.png` | pgAdmin / DBeaver | Diagrama ER do esquema relacional e consulta à vista `v_ranking`. |
-
----
-
-## 3. Boas Práticas para a Captura no Spoon
-
-1. **Limpeza Visual:** Fechar janelas ou painéis laterais redundantes antes de tirar o print.
-2. **Destaque:** Assegurar que os nomes dos steps no canvas são perfeitamente legíveis (usar o zoom do Spoon a 100%).
-3. **Execução Prévia:** Tirar prints dos canvas preferencialmente após uma execução bem-sucedida, exibindo os ícones de visto verde nos steps e as métricas na barra inferior.
+As novas capturas devem mostrar data legível, configuração relevante e ausência de passwords.
