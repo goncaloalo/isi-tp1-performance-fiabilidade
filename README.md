@@ -1,227 +1,112 @@
 # ISI TP1 — Performance e campanhas de segurança da gama BMW M
 
-Trabalho Prático 1 da unidade curricular de Integração de Sistemas de Informação, Licenciatura em Engenharia de Sistemas Informáticos, IPCA/EST, ano letivo 2026/2027.
+- **Unidade curricular:** Integração de Sistemas de Informação (ISI)
+- **Curso:** Licenciatura em Engenharia de Sistemas Informáticos — IPCA / EST
+- **Ano letivo:** 2026/2027
+- **Autor:** Gonçalo Correia, n.º 22840
 
-O projeto implementa uma pipeline ETL em Pentaho Data Integration (PDI/Kettle) que integra especificações automóveis fornecidas num CSV local com contagens de campanhas de segurança devolvidas pela API pública da NHTSA. O resultado é consolidado em CSV, carregado em PostgreSQL e exportado em JSON e XML.
+## 1. Descrição do projeto
 
-> O campo `recalls_por_100hp` é um indicador exploratório criado para o exercício ETL. Não é uma métrica científica validada de fiabilidade mecânica e não permite inferir causalidade.
+A pipeline Pentaho integra especificações de veículos BMW M em CSV com campanhas de segurança da API REST da NHTSA. Limpa os dados, separa rejeitados, calcula indicadores, carrega PostgreSQL e exporta JSON e XML.
 
-## Estado da revisão
+O campo `recalls_por_100hp` é um indicador exploratório do exercício ETL. **Não é uma medida científica de fiabilidade mecânica**, nem permite concluir que a potência causa avarias.
 
-- Fonte `specs.csv`: 29 registos, sem duplicados na chave `(make, model, year)`.
-- Quarentena: 1 registo, BMW M3 E92 GTS (2010), por peso omisso.
-- Dataset mecânico válido: 28 veículos.
-- Última execução local de T1, T2 e T3 nesta revisão: concluída com PDI 10.2.0.0-222.
-- NHTSA nessa execução: 15 respostas HTTP 200 válidas e 13 respostas HTTP 400. As respostas HTTP 400 ficaram com contagem e rácio nulos, não com zero.
-- T4, T5 e `J_main` não foram executados nesta revisão porque não foi encontrada uma instância PostgreSQL local configurada e salvaguardada.
-- Testes automáticos: 23 testes com sucesso através da biblioteca standard de Python.
-- Vídeo e QR Code: ação manual ainda necessária.
-- PDF técnico revisto: `output/pdf/relatorio_final_revisao.pdf`; falta inserir o QR Code do vídeo para obter a versão de entrega.
+### Estado de execução
 
-O registo detalhado encontra-se em [docs/REVISAO_FINAL.md](docs/REVISAO_FINAL.md).
+Em **20/10/2026**, o autor executou manualmente `J_main` no Pentaho com sucesso. T1, T2, T3, T4 e T5 terminaram com `result=true`. Foram carregados **28 registos no PostgreSQL**, exportados **28 veículos em JSON** e **6 séries em XML**. O autor confirmou também 28 registos na tabela PostgreSQL.
 
-## Arquitetura
+Esta confirmação atualiza o estado anterior de validação. Não foi criada uma nova execução ou captura durante a resolução documental. O vídeo e o QR Code continuam pendentes.
+
+## 2. Estrutura do repositório
 
 ```text
-data/raw ──T1──> data/processed/specs_limpas.csv
-    │              └──> data/staging/rejeitados_specs.csv
-    │
-    └── NHTSA ──T2──> data/processed/nhtsa_recalls.csv
-                           │
-specs_limpas.csv ──────────┴──T3──> bmw_m_performance_fiabilidade.csv
-                                         │
-                                         T4
-                                         ▼
-                                  PostgreSQL carros_etl
-                                         │
-                                         T5
-                              ┌──────────┴──────────┐
-                              ▼                     ▼
-                         catálogo JSON         resumo XML
+data/raw/                 especificações e lookup de séries
+data/staging/             quarentena de validação e de lookup
+data/processed/           CSV limpos, consultas NHTSA e consolidado
+data/output/              catálogo JSON e resumo XML
+kettle/transformations/   T1 a T5
+kettle/jobs/              J_main.kjb
+sql/                      esquema PostgreSQL
+tests/                    testes locais e fixtures NHTSA
+config/                   exemplo de propriedades Kettle
+docs/                     relatório, guião e checklists
+docs/diagramas/           capturas existentes do Spoon
 ```
 
-O job `kettle/jobs/J_main.kjb` preserva a sequência T1 → T2 → T3 → T4 → T5 e encaminha falhas das transformações para a entrada `Abortar por Erro`.
+## 3. Resumo da pipeline
 
-## Transformações
+| Fase | Operações principais | Resultado |
+|---|---|---|
+| T1 | Normalização, regex, validação de peso/potência/cilindrada/ano, deduplicação e lookup de séries. | 28 registos válidos; M3 E92 GTS com peso omisso em quarentena; segundo caminho para falhas de lookup. |
+| T2 | Pedidos GET à NHTSA e validação de HTTP, JSON e `Count`. | CSV com contagem, estado da consulta e estado HTTP; respostas inválidas mantêm contagem nula. |
+| T3 | `LEFT OUTER JOIN`, seleção de campos e cálculo de `recalls_por_100hp`. | CSV consolidado com 28 veículos e 18 campos; nulos preservados. |
+| T4 | No KTR atual, `Insert/Update` pela chave `(make, model, year)`. | Tabela `bmw_m_performance_fiabilidade` em `carros_etl`. |
+| T5 | Leitura SQL e cópia do fluxo para JSON e agregação XML. | 28 veículos e 6 séries; médias de potência decimais e `modelos_com_resposta_nhtsa`. |
+| J_main | Execução sequencial de T1 a T5 com caminhos de erro para `Abortar por Erro`. | Execução manual confirmada pelo autor em 20/10/2026. |
 
-### T1 — especificações e qualidade de dados
+A fonte tem **29 registos e nenhum duplicado** na chave `(make, model, year)`. Um registo é rejeitado por peso omisso. `Sort Rows` e `Unique Rows` permanecem para demonstrar deduplicação.
 
-`kettle/transformations/T1_extract_specs.ktr`:
-
-- lê `data/raw/specs.csv` e `data/raw/series_lookup.csv`;
-- normaliza `make` e `model`;
-- extrai `versao` e `model_prefix` por expressão regular;
-- rejeita peso nulo, zero ou negativo, potência não positiva, cilindrada não positiva e ano fora de 1886–2100;
-- mantém `Sort Rows` + `Unique Rows` na chave `(make, model, year)`;
-- calcula `peso_ton`, `litros`, `hp_por_tonelada` e `hp_por_litro`;
-- valida a correspondência de `series` e `body_type` após o `Stream Lookup`;
-- escreve 28 linhas válidas e mantém o M3 E92 GTS na quarentena, sem imputar peso.
-
-### T2 — API NHTSA
-
-`kettle/transformations/T2_extract_nhtsa.ktr` envia exatamente:
+T2 envia `make`, `model=model_prefix` e `modelYear=year` a:
 
 ```text
-GET https://api.nhtsa.gov/recalls/recallsByVehicle
-    ?make=<make>
-    &model=<model_prefix>
-    &modelYear=<year>
+https://api.nhtsa.gov/recalls/recallsByVehicle
 ```
 
-Exemplo: `BMW M3 E46 CSL (2003)` é consultado como `make=BMW`, `model=M3`, `modelYear=2003`. A resposta é, portanto, relativa à combinação genérica marca/modelo/ano disponível na NHTSA e não prova a aplicabilidade de cada campanha à variante E46 CSL.
+Por exemplo, M3 E46 CSL (2003) é consultado como BMW M3 de 2003. A resposta não comprova que cada campanha se aplica à variante CSL. No KTR atual, os estados distinguem `OK`, `OK_ZERO` e categorias de erro HTTP/JSON/`Count`. Timeout ou falha de transporte fazem T2 falhar.
 
-O tratamento distingue:
+## 4. Requisitos e configuração
 
-- `OK`: HTTP 2xx, JSON válido e `Count` inteiro positivo;
-- `OK_ZERO`: HTTP 2xx, JSON válido e `Count = 0`;
-- `ERRO_HTTP_<código>`: resposta HTTP fora de 2xx;
-- `JSON_INVALIDO`: corpo não analisável;
-- `COUNT_AUSENTE`: propriedade `Count` em falta;
-- `COUNT_INVALIDO`: valor negativo, fracionário ou não numérico;
-- timeout/erro de transporte: falha do step REST e, por consequência, falha de T2/J_main.
+Na revisão técnica foram usados **PDI 10.2.0.0-222**, **Java 21.0.12.1**, Python 3.14.5 e Git 2.45.0. É necessária uma instância PostgreSQL, o driver JDBC no PDI e acesso HTTPS à NHTSA. Não se assume compatibilidade com outras versões sem teste.
 
-`data/processed/nhtsa_recalls.csv` conserva `nhtsa_query_status` e `nhtsa_http_status`. Respostas inválidas são registadas sem credenciais e ficam com `nhtsa_recalls_count` nulo.
-
-### T3 — consolidação
-
-`kettle/transformations/T3_consolidate_metrics.ktr` efetua um `LEFT OUTER JOIN` pela chave `(make, model_prefix, year) = (make, model, year)`. A transformação não converte contagens ausentes em zero. O rácio só é calculado quando existe contagem válida:
-
-```text
-recalls_por_100hp = nhtsa_recalls_count / engine_hp × 100
-```
-
-O CSV final mantém 18 campos; os metadados HTTP permanecem no ficheiro intermédio de T2.
-
-### T4 — PostgreSQL
-
-`kettle/transformations/T4_load_postgres.ktr` usa `Insert/Update` com a chave `(make, model, year)`. Esta estratégia evita a eliminação prévia de dados e permite reexecução sem duplicar as linhas existentes. Não é uma transação atómica para o dataset completo e não remove linhas antigas que já não existam na fonte.
-
-### T5 — JSON e XML
-
-`kettle/transformations/T5_export_reports.ktr`:
-
-- mantém `engine_hp` inteiro no catálogo JSON;
-- cria `engine_hp_agregacao` com `CAST(... AS NUMERIC(10,2))` para impedir truncagem da média;
-- formata `media_hp` com duas casas decimais;
-- acrescenta `modelos_com_resposta_nhtsa` ao XML, tornando visível a cobertura válida por série;
-- só abre os ficheiros de saída quando recebe a primeira linha, evitando substituir relatórios válidos por ficheiros vazios se a leitura PostgreSQL falhar antes de produzir dados.
-
-Médias de potência esperadas:
-
-| Série | Média (hp) |
-|---|---:|
-| Série 2 M | 422.50 |
-| Série 3 M | 395.00 |
-| Série 4 M | 487.75 |
-| Série 5 M | 503.75 |
-| Série 6 M | 533.50 |
-| Série 8 M | 600.00 |
-
-## Requisitos
-
-Versões confirmadas no computador usado na revisão:
-
-- Pentaho Data Integration 10.2.0.0-222;
-- Java 21.0.12.1;
-- Python 3.14.5;
-- Git 2.45.0.windows.1.
-
-É ainda necessário:
-
-- PostgreSQL compatível com o DDL em `sql/01_schema.sql`;
-- driver JDBC PostgreSQL disponível no PDI;
-- acesso HTTPS a `api.nhtsa.gov`.
-
-O projeto não depende de bibliotecas Python externas para executar os testes.
-
-## Configurar PostgreSQL e o PDI
-
-1. Criar uma base de dados vazia, sem apagar uma base já existente:
-
-   ```powershell
-   createdb -h localhost -p 5432 -U postgres carros_etl
-   psql -h localhost -p 5432 -U postgres -d carros_etl -f .\sql\01_schema.sql
-   ```
-
-2. Copiar o exemplo de propriedades para a configuração local do Kettle:
-
-   ```powershell
-   New-Item -ItemType Directory -Force "$env:USERPROFILE\.kettle" | Out-Null
-   Copy-Item .\config\kettle.properties.example "$env:USERPROFILE\.kettle\kettle.properties"
-   notepad "$env:USERPROFILE\.kettle\kettle.properties"
-   ```
-
-3. Preencher localmente `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER` e `PGPASSWORD`. O ficheiro real está ignorado pelo Git. Reiniciar o Spoon depois de alterar o ficheiro, porque o PDI lê estas propriedades no arranque.
-
-   > No PDI 10.2 testado, definir apenas variáveis de ambiente na sessão PowerShell não as tornou automaticamente disponíveis como variáveis Kettle. Usar `kettle.properties` evita essa ambiguidade.
-
-4. No Spoon, abrir T4 ou T5, editar a ligação `Postgres_Carros` e usar **Test**. A password não deve ser guardada no repositório.
-
-## Executar
-
-### Spoon
-
-1. Abrir `kettle/jobs/J_main.kjb`.
-2. Confirmar as variáveis PostgreSQL e a existência da tabela.
-3. Executar com nível de log `Basic`.
-4. Confirmar o caminho de sucesso e rever mensagens NHTSA; respostas HTTP inválidas ficam nulas e registadas.
-
-### Kitchen no Windows
+Numa base nova ou salvaguardada, preparar a tabela:
 
 ```powershell
-& "C:\caminho\para\data-integration\Kitchen.bat" `
-  /file:"$PWD\kettle\jobs\J_main.kjb" `
-  /level:Basic
+createdb -h localhost -p 5432 -U postgres carros_etl
+psql -h localhost -p 5432 -U postgres -d carros_etl -f .\sql\01_schema.sql
 ```
 
-Para executar apenas uma transformação:
+O DDL não migra automaticamente uma tabela antiga já existente.
+
+Nos KTR atuais, T4 e T5 usam `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER` e `PGPASSWORD`. Configurar estas propriedades em `%USERPROFILE%\.kettle\kettle.properties`, usando `config/kettle.properties.example` como referência. Preservar propriedades locais existentes e reiniciar o Spoon após alterações. Não guardar passwords no Git. Definir apenas variáveis PowerShell não as tornou automaticamente disponíveis no PDI testado.
+
+No Spoon, abrir a ligação `Postgres_Carros` e usar **Test**.
+
+## 5. Execução e testes
+
+No Spoon, abrir `kettle/jobs/J_main.kjb`, executar localmente com log `Basic` e confirmar `result=true` em T1 a T5. Rever também as mensagens NHTSA: sucesso do job não significa que todas as consultas HTTP sejam válidas.
+
+No Windows, a partir da raiz do repositório:
 
 ```powershell
-& "C:\caminho\para\data-integration\Pan.bat" `
-  /file:"$PWD\kettle\transformations\T1_extract_specs.ktr" `
-  /level:Basic
-```
-
-## Testes
-
-```powershell
+& "C:\caminho\para\data-integration\Kitchen.bat" /file:"$PWD\kettle\jobs\J_main.kjb" /level:Basic
 python -m unittest discover -s tests -v
 ```
 
-Os testes verificam dados existentes, fórmulas, nulos, JSON/XML, estrutura Kettle, ausência de segredos e respostas NHTSA simuladas. Não equivalem a uma nova execução de T4/T5/PostgreSQL.
+A revisão técnica registou 23 testes aprovados, sobre CSV, fórmulas, nulos, JSON/XML, estrutura Kettle e fixtures HTTP. Estes testes são distintos da execução manual confirmada pelo autor. Não foi confirmado um tempo de execução para essa execução.
 
-## Estrutura do repositório
+## 6. Resultados e limitações
 
-```text
-config/                   exemplo de configuração sem segredos
-data/raw/                 fontes CSV locais
-data/staging/             quarentena
-data/processed/           artefactos intermédios e consolidado
-data/output/              JSON e XML finais
-docs/                     relatório, decisões, revisão e guião
-docs/diagramas/           capturas reais existentes
-kettle/transformations/   T1 a T5
-kettle/jobs/              J_main
-sql/                      DDL PostgreSQL
-tests/                    testes standard library e fixtures locais
-```
+As médias de potência por série são 422.50, 395.00, 487.75, 503.75, 533.50 e 600.00 hp. T5 agrega `engine_hp_agregacao`, obtido com `CAST(engine_hp AS NUMERIC(10,2))`, e formata a média como `0.00`.
 
-## Limitações conhecidas
+- As especificações locais não têm fonte externa documentada por valor; não são apresentadas como dados BMW oficialmente verificados.
+- A NHTSA cobre campanhas de segurança dos EUA. A consulta por modelo genérico não confirma cobertura por VIN ou variante.
+- Zero só é aceite com HTTP 2xx, JSON válido e `Count` inteiro não negativo. Falha de consulta mantém `NULL`.
+- T3 preserva contagens/rácios nulos e o preço nulo do M5 E34.
+- `Insert/Update` não garante atomicidade global nem elimina linhas removidas da fonte.
+- O job não constitui uma transação distribuída entre API, ficheiros e PostgreSQL.
+- O PDI testado devolveu código de processo 0 numa falha de ligação em Pan; rever também o log e o resultado Kettle.
+- Capturas antigas podem mostrar configurações anteriores. A checklist deve ser confrontada com os KTR atuais.
+- Vídeo, URL publicado e QR Code continuam por produzir. O PDF existente não foi atualizado nesta resolução.
 
-- As especificações históricas em `specs.csv` não têm fonte externa documentada; são dados de entrada do projeto, não dados oficiais BMW verificados.
-- A NHTSA cobre campanhas de segurança do mercado dos EUA e a consulta usa o prefixo genérico do modelo.
-- Uma resposta HTTP inválida não é interpretada como `Count = 0`.
-- O `Insert/Update` de T4 não garante atomicidade global e não elimina linhas obsoletas.
-- Nesta instalação, `Pan.bat` devolveu código de processo 0 mesmo quando o log continha um erro de ligação; em automatizações deve validar-se também o resultado/log do PDI, preferencialmente através do job e dos respetivos hops de erro.
-- As capturas existentes foram obtidas antes de algumas correções finais; devem ser atualizadas antes da entrega quando mostrarem steps entretanto alterados.
-- O vídeo obrigatório e o respetivo QR Code ainda têm de ser produzidos manualmente.
+## 7. Documentação
 
-## Documentação
+- [Relatório técnico](docs/relatorio_final.md)
+- [Guião do vídeo de 3 a 5 minutos](docs/GUIAO_VIDEO.md)
+- [Checklist das capturas](docs/CHECKLIST_CAPTURAS.md)
+- [Checklist da demonstração](docs/CHECKLIST_DEMONSTRACAO.md)
+- [Inventário de diagramas](docs/diagramas/README.md)
+- [Decisões ETL](docs/decisoes_etl.md)
+- [Registo histórico da revisão](docs/REVISAO_FINAL.md)
+- [PDF técnico existente](output/pdf/relatorio_final_revisao.pdf)
 
-- Relatório: [docs/relatorio_final.md](docs/relatorio_final.md)
-- PDF técnico revisto: [output/pdf/relatorio_final_revisao.pdf](output/pdf/relatorio_final_revisao.pdf)
-- Decisões ETL: [docs/decisoes_etl.md](docs/decisoes_etl.md)
-- Guião do vídeo: [docs/GUIAO_VIDEO.md](docs/GUIAO_VIDEO.md)
-- Checklist da demonstração: [docs/CHECKLIST_DEMONSTRACAO.md](docs/CHECKLIST_DEMONSTRACAO.md)
-- Revisão final: [docs/REVISAO_FINAL.md](docs/REVISAO_FINAL.md)
-- Inventário visual: [docs/diagramas/README.md](docs/diagramas/README.md)
+Os registos históricos e algumas capturas antecedem a execução manual agora confirmada. O estado atualizado encontra-se neste README e no relatório.

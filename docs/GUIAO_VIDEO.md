@@ -1,104 +1,112 @@
-# Guião do vídeo demonstrativo
+# Guião do vídeo demonstrativo — 3 a 5 minutos
 
-**Duração alvo:** 3 a 5 minutos
+**Autor:** Gonçalo Correia, n.º 22840 — ISI, LESI, IPCA / EST, 2026/2027
 
-**Formato sugerido:** gravação do ecrã com voz, 1080p, texto do Spoon legível
-**Estado:** ação manual necessária
+**Duração prevista:** 4 minutos e 40 segundos
 
-## Preparação
+**Formato:** gravação do ecrã com voz, 1080p, texto do Spoon legível
 
-- Abrir o repositório, Spoon, PostgreSQL/pgAdmin e um terminal.
-- Configurar localmente as variáveis Kettle `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER` e `PGPASSWORD` através de `%USERPROFILE%\.kettle\kettle.properties`; reiniciar o Spoon depois da alteração.
-- Executar `sql/01_schema.sql` numa base nova ou salvaguardada.
-- Executar os testes Python e guardar o resultado visível.
-- Fechar janelas com dados pessoais, passwords ou tokens.
-- Confirmar que T1–T5 e `J_main` abrem sem avisos inesperados.
+**Estado:** guião preparado; vídeo, publicação e QR Code pendentes.
 
-## Sequência de gravação
+Em 20/10/2026, o autor confirmou a execução manual de `J_main`: T1 a T5 com `result=true`, 28 registos no PostgreSQL, 28 veículos JSON e 6 séries XML. Esta confirmação não substitui a gravação.
 
-### 0:00–0:25 — apresentação
+## 1. Preparação
 
-“Este é o Trabalho Prático 1 de Integração de Sistemas de Informação. O objetivo é integrar especificações da gama BMW M com contagens de campanhas de segurança da NHTSA através de uma pipeline Pentaho T1 a T5.”
+1. Abrir Spoon com T1 a T5 e `J_main.kjb`, pgAdmin/psql e o repositório.
+2. Confirmar a ligação `Postgres_Carros`. Os KTR atuais usam propriedades Kettle; não mostrar passwords.
+3. Usar uma base nova ou salvaguardada e confirmar o esquema de `sql/01_schema.sql`.
+4. Rever [CHECKLIST_CAPTURAS.md](CHECKLIST_CAPTURAS.md) e [CHECKLIST_DEMONSTRACAO.md](CHECKLIST_DEMONSTRACAO.md). Confrontar indicações históricas com os KTR atuais.
+5. Preparar os CSV, JSON e XML para apresentação e executar os testes locais.
+6. Fechar notificações e janelas com dados pessoais. Testar o microfone.
 
-Mostrar brevemente o README e a árvore `data/`, `kettle/`, `sql/`, `tests/` e `docs/`.
+## 2. Sequência de gravação
 
-### 0:25–0:50 — fontes e limitações
+### 0:00–0:25 — problema e enquadramento
 
-Mostrar `data/raw/specs.csv` e `series_lookup.csv`.
+**Mostrar:** README e estrutura do repositório.
 
-Explicar:
+**Dizer:** “Este trabalho integra especificações de veículos BMW M com campanhas de segurança da NHTSA. A pipeline Pentaho limpa, cruza e carrega os dados em PostgreSQL, gerando relatórios JSON e XML.”
 
-- as especificações são dados de entrada do projeto sem fonte externa documentada;
-- a NHTSA é uma fonte oficial de campanhas de segurança dos EUA;
-- a consulta usa o prefixo genérico, por exemplo M3, e não comprova aplicabilidade a uma variante específica;
-- `recalls_por_100hp` é exploratório, não uma medida científica de fiabilidade.
+### 0:25–0:50 — fontes e limites
+
+**Mostrar:** `data/raw/specs.csv` e `series_lookup.csv`.
+
+**Dizer:** “As especificações são dados locais do projeto, sem fonte externa documentada por valor. A NHTSA fornece campanhas de segurança dos EUA. Consultamos o modelo genérico e o ano, sem confirmar cada variante. O rácio recalls por 100 hp é exploratório e não uma medida científica de fiabilidade mecânica.”
 
 ### 0:50–1:25 — T1 e quarentena
 
-Abrir `T1_extract_specs.ktr` e mostrar:
+**Mostrar:** canvas de T1, `Validar campos obrigatorios`, regex, `Sort Rows` + `Unique Rows`, lookup e `Validar lookup series`.
 
-- normalização e regex;
-- `Validar campos obrigatorios`;
-- `Sort Rows` + `Unique Rows`;
-- `Stream Lookup` e `Validar lookup series`;
-- saídas válidas e de quarentena.
+**Dizer:** “A fonte tem 29 registos, sem duplicados na chave marca, modelo e ano. Validamos peso, potência, cilindrada, ano e correspondência de série. O M3 E92 GTS fica em quarentena por peso omisso. Mantemos 28 veículos válidos e um segundo caminho para rejeitados de lookup.”
 
-Executar T1. Confirmar 29 registos lidos, 1 rejeitado e 28 válidos. Mostrar o M3 E92 GTS com peso vazio em `rejeitados_specs.csv`.
+Mostrar `rejeitados_specs.csv`, sem inventar o peso em falta. Não afirmar que foi removido um duplicado da fonte atual.
 
-### 1:25–2:05 — T2 e chamada REST
+### 1:25–2:05 — T2 e API REST
 
-Abrir T2. Mostrar a construção do URL e o REST Client. Usar um exemplo como `BMW M3 2003`.
+**Mostrar:** construção do URL, REST Client e `Validar resposta NHTSA`; não procurar o antigo `JSON input`.
 
-Mostrar `Validar resposta NHTSA` e explicar as categorias `OK`, `OK_ZERO`, erro HTTP, JSON inválido e `Count` ausente/inválido. Executar T2 apenas com acesso à Internet.
+**Dizer:** “O pedido GET envia make, model e modelYear. Um M3 E46 CSL de 2003 é consultado como BMW M3 de 2003. Validamos HTTP 2xx, JSON e Count inteiro não negativo. Zero válido fica zero; resposta inválida mantém NULL. O CSV guarda também o estado HTTP e o estado da consulta.”
 
-Mostrar `nhtsa_recalls.csv`: respostas 2xx têm contagem; respostas inválidas têm contagem vazia e estado explícito. Não apresentar HTTP 400 como zero recalls.
+No KTR atual, mostrar `OK`, `OK_ZERO` e categorias de erro. Explicar que timeout ou falha de transporte fazem T2 falhar.
 
-### 2:05–2:30 — T3 e métricas
+### 2:05–2:30 — T3 e consolidação
 
-Abrir T3 e mostrar o `LEFT OUTER JOIN` e o `Calculator`. Explicar que nulos NHTSA permanecem nulos. Executar T3 e mostrar os 28 registos finais e o preço nulo do M5 E34.
+**Mostrar:** `LEFT OUTER JOIN`, seleção de campos e `Calculator`.
+
+**Dizer:** “Juntamos as fontes pelo modelo genérico e ano, preservando os veículos das especificações. As contagens NHTSA nulas continuam nulas. O rácio é a contagem dividida pela potência, multiplicada por 100. O CSV final tem 28 veículos e 18 campos.”
 
 ### 2:30–3:00 — T4 e PostgreSQL
 
-Mostrar `sql/01_schema.sql`, a ligação por variáveis e o step `Insert/Update`. Explicar que não existe `TRUNCATE` e que a carga é idempotente por chave, mas não é uma transação atómica global.
+**Mostrar:** `Insert/Update`, atualmente presente em T4, e pgAdmin/psql.
 
-Executar T4 numa base salvaguardada. Consultar:
+**Dizer:** “A carga usa a chave marca, modelo e ano. A reexecução atualiza linhas existentes, mas não é uma transação atómica global e não elimina linhas removidas da fonte. O preço do M5 E34 permanece NULL.”
+
+Executar as consultas:
 
 ```sql
 SELECT COUNT(*) FROM bmw_m_performance_fiabilidade;
-SELECT model, price_usd FROM bmw_m_performance_fiabilidade WHERE model = 'M5 E34';
+SELECT model, price_usd
+FROM bmw_m_performance_fiabilidade
+WHERE model = 'M5 E34';
 ```
+
+Mostrar o resultado real. O autor já confirmou 28 registos em 20/10/2026.
 
 ### 3:00–3:25 — T5 e relatórios
 
-Mostrar a query de T5, destacando o cast decimal de `engine_hp_agregacao`. Executar T5 e abrir:
+**Mostrar:** query com cast decimal, `GroupBy`, catálogo JSON e resumo XML.
 
-- `data/output/bmw_m_catalogo_completo.json`;
-- `data/output/bmw_m_resumo_series.xml`.
+**Dizer:** “O fluxo é copiado para dois ramos. Exportamos 28 veículos em JSON e seis séries em XML. O cast decimal preserva as médias de potência. O campo modelos_com_resposta_nhtsa indica quantas linhas de cada série têm contagem válida.”
 
-Confirmar seis séries e as médias 422.50, 395.00, 487.75, 503.75, 533.50 e 600.00 hp. Mostrar `modelos_com_resposta_nhtsa`.
+Destacar as médias 422.50, 395.00, 487.75, 503.75, 533.50 e 600.00 hp. Não interpretar falta de resposta como zero campanhas.
 
-### 3:25–4:10 — J_main e testes
+### 3:25–4:10 — J_main e validação
 
-Abrir `J_main.kjb`, mostrar a sequência e os hops de erro. Executar o job completo apenas depois de T4/T5 terem sido validados separadamente.
+**Mostrar:** sequência T1 a T5 e hops de erro para `Abortar por Erro`.
 
-No terminal, executar:
+**Dizer:** “O job executa as transformações em sequência e desvia falhas para Abortar por Erro. Em 20 de outubro de 2026, confirmei manualmente result=true nas cinco transformações, 28 registos na tabela, 28 veículos em JSON e seis séries em XML.”
+
+Executar o job se o ambiente estiver preparado, ou mostrar uma evidência real guardada dessa execução. Não atribuir a capturas antigas a execução de 20/10/2026 sem confirmação. Não prometer uma duração de execução.
+
+Se houver tempo, mostrar o resultado de:
 
 ```powershell
 python -m unittest discover -s tests -v
 ```
 
-Mostrar o total de testes com sucesso.
+### 4:10–4:40 — resultados e conclusão
 
-### 4:10–4:40 — conclusão
+**Mostrar:** resultados no relatório.
 
-Resumir os 28 veículos válidos, a quarentena, a integração REST, PostgreSQL e os dois formatos finais. Repetir as limitações de cobertura, granularidade NHTSA e proveniência das especificações.
+**Dizer:** “A integração foi executada com sucesso. Os resultados demonstram o processo ETL, não uma relação causal entre potência e avarias. As principais limitações são a origem não documentada das especificações, a cobertura dos EUA e a consulta por modelo genérico. Recalls por 100 hp é apenas um indicador exploratório.”
 
-## Publicação
+## 3. Publicação e QR Code
 
-1. Ver o vídeo integralmente.
-2. Publicar num serviço aceite pela unidade curricular.
-3. Abrir o URL numa janela privada e confirmar áudio, imagem e permissões.
-4. Só depois criar o QR Code.
-5. Inserir URL e QR Code em `docs/relatorio_final.md` e no PDF final.
+1. Rever som, legibilidade e ausência de dados privados.
+2. Confirmar duração entre 3 e 5 minutos.
+3. Publicar numa plataforma aceite pela unidade curricular.
+4. Testar o URL numa janela privada.
+5. Só depois gerar e testar o QR Code.
+6. Inserir URL e QR Code na secção 5 do relatório e gerar o PDF final.
 
-Não usar um URL provisório ou um QR Code não testado.
+Não existe ainda URL ou QR Code final confirmado.
