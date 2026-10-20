@@ -463,11 +463,6 @@
     </hop>
     <hop>
       <from>Limpar campos duplicados</from>
-      <to>Tratar recalls nulos</to>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Tratar recalls nulos</from>
       <to>Add const 100</to>
       <enabled>Y</enabled>
     </hop>
@@ -958,6 +953,28 @@
         <precision>0</precision>
         <trim_type>none</trim_type>
       </field>
+      <field>
+        <name>nhtsa_query_status</name>
+        <type>String</type>
+        <format/>
+        <currency/>
+        <decimal>,</decimal>
+        <group>.</group>
+        <length>-1</length>
+        <precision>-1</precision>
+        <trim_type>both</trim_type>
+      </field>
+      <field>
+        <name>nhtsa_http_status</name>
+        <type>Integer</type>
+        <format>#</format>
+        <currency/>
+        <decimal>,</decimal>
+        <group>.</group>
+        <length>15</length>
+        <precision>0</precision>
+        <trim_type>none</trim_type>
+      </field>
     </fields>
     <attributes/>
     <cluster_schema/>
@@ -1212,6 +1229,12 @@
       <remove>
         <name>year_1</name>
       </remove>
+      <remove>
+        <name>nhtsa_query_status</name>
+      </remove>
+      <remove>
+        <name>nhtsa_http_status</name>
+      </remove>
     </fields>
     <attributes/>
     <cluster_schema/>
@@ -1340,46 +1363,6 @@
     <GUI>
       <xloc>400</xloc>
       <yloc>100</yloc>
-      <draw>Y</draw>
-    </GUI>
-  </step>
-  <step>
-    <name>Tratar recalls nulos</name>
-    <type>IfNull</type>
-    <description/>
-    <distribute>Y</distribute>
-    <custom_distribution/>
-    <copies>1</copies>
-    <partitioning>
-      <method>none</method>
-      <schema_name/>
-    </partitioning>
-    <replaceAllByValue/>
-    <replaceAllMask/>
-    <selectFields>Y</selectFields>
-    <selectValuesType>N</selectValuesType>
-    <setEmptyStringAll>N</setEmptyStringAll>
-    <valuetypes>
-      </valuetypes>
-    <fields>
-      <field>
-        <name>nhtsa_recalls_count</name>
-        <value>0</value>
-        <mask/>
-        <set_empty_string>N</set_empty_string>
-      </field>
-    </fields>
-    <attributes/>
-    <cluster_schema/>
-    <remotesteps>
-      <input>
-      </input>
-      <output>
-      </output>
-    </remotesteps>
-    <GUI>
-      <xloc>912</xloc>
-      <yloc>176</yloc>
       <draw>Y</draw>
     </GUI>
   </step>

@@ -1,0 +1,7 @@
+# Copiar para %USERPROFILE%\.kettle\kettle.properties e substituir apenas localmente.
+# Este ficheiro é um exemplo e não contém credenciais reais.
+PGHOST=localhost
+PGPORT=5432
+PGDATABASE=carros_etl
+PGUSER=postgres
+PGPASSWORD=

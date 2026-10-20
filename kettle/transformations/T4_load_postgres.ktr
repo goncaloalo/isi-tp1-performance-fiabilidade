@@ -438,13 +438,13 @@
   </notepads>
   <connection>
     <name>Postgres_Carros</name>
-    <server>localhost</server>
+    <server>${PGHOST}</server>
     <type>POSTGRESQL</type>
     <access>Native</access>
-    <database>carros_etl</database>
-    <port>5432</port>
-    <username>postgres</username>
-    <password>Encrypted 2be98afc86aa7f2e4cb79ce108bc7fa8f</password>
+    <database>${PGDATABASE}</database>
+    <port>${PGPORT}</port>
+    <username>${PGUSER}</username>
+    <password>${PGPASSWORD}</password>
     <servername/>
     <data_tablespace/>
     <index_tablespace/>
@@ -463,7 +463,7 @@
       </attribute>
       <attribute>
         <code>PORT_NUMBER</code>
-        <attribute>5432</attribute>
+        <attribute>${PGPORT}</attribute>
       </attribute>
       <attribute>
         <code>PRESERVE_RESERVED_WORD_CASE</code>
@@ -735,8 +735,8 @@
   </step>
   <step>
     <name>Carregar PostgreSQL</name>
-    <type>TableOutput</type>
-    <description/>
+    <type>InsertUpdate</type>
+    <description>Carga idempotente por atualização/inserção, sem truncar a tabela.</description>
     <distribute>Y</distribute>
     <custom_distribution/>
     <copies>1</copies>
@@ -745,96 +745,30 @@
       <schema_name/>
     </partitioning>
     <connection>Postgres_Carros</connection>
-    <schema>public</schema>
-    <table>bmw_m_performance_fiabilidade</table>
     <commit>1000</commit>
-    <truncate>Y</truncate>
-    <ignore_errors>N</ignore_errors>
-    <use_batch>Y</use_batch>
-    <specify_fields>Y</specify_fields>
-    <partitioning_enabled>N</partitioning_enabled>
-    <partitioning_field/>
-    <partitioning_daily>N</partitioning_daily>
-    <partitioning_monthly>Y</partitioning_monthly>
-    <tablename_in_field>N</tablename_in_field>
-    <tablename_field/>
-    <tablename_in_table>Y</tablename_in_table>
-    <return_keys>N</return_keys>
-    <return_field/>
-    <fields>
-      <field>
-        <column_name>make</column_name>
-        <stream_name>make</stream_name>
-      </field>
-      <field>
-        <column_name>model</column_name>
-        <stream_name>model</stream_name>
-      </field>
-      <field>
-        <column_name>year</column_name>
-        <stream_name>year</stream_name>
-      </field>
-      <field>
-        <column_name>engine_hp</column_name>
-        <stream_name>engine_hp</stream_name>
-      </field>
-      <field>
-        <column_name>weight_kg</column_name>
-        <stream_name>weight_kg</stream_name>
-      </field>
-      <field>
-        <column_name>zero_to_sixty_mph</column_name>
-        <stream_name>zero_to_sixty_mph</stream_name>
-      </field>
-      <field>
-        <column_name>engine_cc</column_name>
-        <stream_name>engine_cc</stream_name>
-      </field>
-      <field>
-        <column_name>price_usd</column_name>
-        <stream_name>price_usd</stream_name>
-      </field>
-      <field>
-        <column_name>versao</column_name>
-        <stream_name>versao</stream_name>
-      </field>
-      <field>
-        <column_name>model_prefix</column_name>
-        <stream_name>model_prefix</stream_name>
-      </field>
-      <field>
-        <column_name>peso_ton</column_name>
-        <stream_name>peso_ton</stream_name>
-      </field>
-      <field>
-        <column_name>litros</column_name>
-        <stream_name>litros</stream_name>
-      </field>
-      <field>
-        <column_name>hp_por_tonelada</column_name>
-        <stream_name>hp_por_tonelada</stream_name>
-      </field>
-      <field>
-        <column_name>hp_por_litro</column_name>
-        <stream_name>hp_por_litro</stream_name>
-      </field>
-      <field>
-        <column_name>series</column_name>
-        <stream_name>series</stream_name>
-      </field>
-      <field>
-        <column_name>body_type</column_name>
-        <stream_name>body_type</stream_name>
-      </field>
-      <field>
-        <column_name>nhtsa_recalls_count</column_name>
-        <stream_name>nhtsa_recalls_count</stream_name>
-      </field>
-      <field>
-        <column_name>recalls_por_100hp</column_name>
-        <stream_name>recalls_por_100hp</stream_name>
-      </field>
-    </fields>
+    <update_bypassed>N</update_bypassed>
+    <lookup>
+      <schema>public</schema>
+      <table>bmw_m_performance_fiabilidade</table>
+      <key><name>make</name><field>make</field><condition>=</condition><name2/></key>
+      <key><name>model</name><field>model</field><condition>=</condition><name2/></key>
+      <key><name>year</name><field>year</field><condition>=</condition><name2/></key>
+      <value><name>engine_hp</name><rename>engine_hp</rename><update>Y</update></value>
+      <value><name>weight_kg</name><rename>weight_kg</rename><update>Y</update></value>
+      <value><name>zero_to_sixty_mph</name><rename>zero_to_sixty_mph</rename><update>Y</update></value>
+      <value><name>engine_cc</name><rename>engine_cc</rename><update>Y</update></value>
+      <value><name>price_usd</name><rename>price_usd</rename><update>Y</update></value>
+      <value><name>versao</name><rename>versao</rename><update>Y</update></value>
+      <value><name>model_prefix</name><rename>model_prefix</rename><update>Y</update></value>
+      <value><name>peso_ton</name><rename>peso_ton</rename><update>Y</update></value>
+      <value><name>litros</name><rename>litros</rename><update>Y</update></value>
+      <value><name>hp_por_tonelada</name><rename>hp_por_tonelada</rename><update>Y</update></value>
+      <value><name>hp_por_litro</name><rename>hp_por_litro</rename><update>Y</update></value>
+      <value><name>series</name><rename>series</rename><update>Y</update></value>
+      <value><name>body_type</name><rename>body_type</rename><update>Y</update></value>
+      <value><name>nhtsa_recalls_count</name><rename>nhtsa_recalls_count</rename><update>Y</update></value>
+      <value><name>recalls_por_100hp</name><rename>recalls_por_100hp</rename><update>Y</update></value>
+    </lookup>
     <attributes/>
     <cluster_schema/>
     <remotesteps>

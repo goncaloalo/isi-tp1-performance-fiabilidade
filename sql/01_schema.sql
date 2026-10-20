@@ -2,11 +2,11 @@ CREATE TABLE IF NOT EXISTS bmw_m_performance_fiabilidade (
     id SERIAL PRIMARY KEY,
     make VARCHAR(50) NOT NULL,
     model VARCHAR(100) NOT NULL,
-    year INT NOT NULL,
-    engine_hp INT NOT NULL,
-    weight_kg INT NOT NULL,
+    year INT NOT NULL CHECK (year BETWEEN 1886 AND 2100),
+    engine_hp INT NOT NULL CHECK (engine_hp > 0),
+    weight_kg INT NOT NULL CHECK (weight_kg > 0),
     zero_to_sixty_mph NUMERIC(4,2),
-    engine_cc INT NOT NULL,
+    engine_cc INT NOT NULL CHECK (engine_cc > 0),
     price_usd INT,
     versao VARCHAR(50) NOT NULL,
     model_prefix VARCHAR(10) NOT NULL,
@@ -16,8 +16,8 @@ CREATE TABLE IF NOT EXISTS bmw_m_performance_fiabilidade (
     hp_por_litro NUMERIC(6,2) NOT NULL,
     series VARCHAR(50) NOT NULL,
     body_type VARCHAR(50) NOT NULL,
-    nhtsa_recalls_count INT DEFAULT 0,
-    recalls_por_100hp NUMERIC(6,4) DEFAULT 0,
+    nhtsa_recalls_count INT CHECK (nhtsa_recalls_count >= 0),
+    recalls_por_100hp NUMERIC(8,4) CHECK (recalls_por_100hp >= 0),
     loaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_model_year UNIQUE (model, year)
+    CONSTRAINT uq_make_model_year UNIQUE (make, model, year)
 );

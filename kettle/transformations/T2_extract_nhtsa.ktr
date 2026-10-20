@@ -463,11 +463,26 @@
     </hop>
     <hop>
       <from>Chamar API Recalls</from>
-      <to>Extrair recalls JSON</to>
+      <to>Validar resposta NHTSA</to>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>Extrair recalls JSON</from>
+      <from>Validar resposta NHTSA</from>
+      <to>Filtrar respostas validas</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Filtrar respostas validas</from>
+      <to>Selecionar campos recalls</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Filtrar respostas validas</from>
+      <to>Registar erro NHTSA</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Registar erro NHTSA</from>
       <to>Selecionar campos recalls</to>
       <enabled>Y</enabled>
     </hop>
@@ -939,9 +954,9 @@ var url_recalls = "https://api.nhtsa.gov/recalls/recallsByVehicle?make="
     </GUI>
   </step>
   <step>
-    <name>Extrair recalls JSON</name>
-    <type>JsonInput</type>
-    <description/>
+    <name>Validar resposta NHTSA</name>
+    <type>ScriptValueMod</type>
+    <description>Valida o estado HTTP, a sintaxe JSON e o campo Count antes do parsing.</description>
     <distribute>Y</distribute>
     <custom_distribution/>
     <copies>1</copies>
@@ -949,52 +964,69 @@ var url_recalls = "https://api.nhtsa.gov/recalls/recallsByVehicle?make="
       <method>none</method>
       <schema_name/>
     </partitioning>
-    <include>N</include>
-    <include_field/>
-    <rownum>N</rownum>
-    <addresultfile>N</addresultfile>
-    <readurl>N</readurl>
-    <removeSourceField>N</removeSourceField>
-    <IsIgnoreEmptyFile>N</IsIgnoreEmptyFile>
-    <doNotFailIfNoFile>Y</doNotFailIfNoFile>
-    <ignoreMissingPath>Y</ignoreMissingPath>
-    <defaultPathLeafToNull>Y</defaultPathLeafToNull>
-    <includeNulls>N</includeNulls>
-    <rownum_field/>
-    <file>
-      <name/>
-      <filemask/>
-      <exclude_filemask/>
-      <file_required>N</file_required>
-      <include_subfolders>N</include_subfolders>
-    </file>
+    <compatible>N</compatible>
+    <optimizationLevel>9</optimizationLevel>
+    <jsScripts>
+      <jsScript>
+        <jsScript_type>0</jsScript_type>
+        <jsScript_name>Validar HTTP e JSON</jsScript_name>
+        <jsScript_script>var api_response_valid = "N";
+var api_error_type = "ERRO_DESCONHECIDO";
+var nhtsa_recalls_count = null;
+var status_num = parseInt(String(http_status), 10);
+
+if (isNaN(status_num)) {
+  api_error_type = "SEM_STATUS_HTTP";
+} else if (status_num &lt; 200 || status_num &gt;= 300) {
+  api_error_type = "ERRO_HTTP_" + status_num;
+} else {
+  try {
+    var payload = JSON.parse(String(resposta_json));
+    if (payload === null || typeof payload !== "object" ||
+        !Object.prototype.hasOwnProperty.call(payload, "Count")) {
+      api_error_type = "COUNT_AUSENTE";
+    } else {
+      var count_num = Number(payload.Count);
+      if (!isFinite(count_num) || count_num &lt; 0 || Math.floor(count_num) !== count_num) {
+        api_error_type = "COUNT_INVALIDO";
+      } else {
+        nhtsa_recalls_count = count_num;
+        api_response_valid = "Y";
+        api_error_type = count_num === 0 ? "OK_ZERO" : "OK";
+      }
+    }
+  } catch (e) {
+    api_error_type = "JSON_INVALIDO";
+  }
+}</jsScript_script>
+      </jsScript>
+    </jsScripts>
     <fields>
       <field>
-        <name>nhtsa_recalls_count</name>
-        <path>$.Count</path>
-        <type>Integer</type>
-        <format/>
-        <currency/>
-        <decimal/>
-        <group/>
-        <length>-1</length>
+        <name>api_response_valid</name>
+        <rename>api_response_valid</rename>
+        <type>String</type>
+        <length>1</length>
         <precision>-1</precision>
-        <trim_type>none</trim_type>
-        <repeat>N</repeat>
+        <replace>N</replace>
+      </field>
+      <field>
+        <name>api_error_type</name>
+        <rename>api_error_type</rename>
+        <type>String</type>
+        <length>40</length>
+        <precision>-1</precision>
+        <replace>N</replace>
+      </field>
+      <field>
+        <name>nhtsa_recalls_count</name>
+        <rename>nhtsa_recalls_count</rename>
+        <type>Integer</type>
+        <length>-1</length>
+        <precision>0</precision>
+        <replace>N</replace>
       </field>
     </fields>
-    <limit>0</limit>
-    <IsInFields>Y</IsInFields>
-    <IsAFile>N</IsAFile>
-    <valueField>resposta_json</valueField>
-    <shortFileFieldName/>
-    <pathFieldName/>
-    <hiddenFieldName/>
-    <lastModificationTimeFieldName/>
-    <uriNameFieldName/>
-    <rootUriNameFieldName/>
-    <extensionFieldName/>
-    <sizeFieldName/>
     <attributes/>
     <cluster_schema/>
     <remotesteps>
@@ -1004,8 +1036,87 @@ var url_recalls = "https://api.nhtsa.gov/recalls/recallsByVehicle?make="
       </output>
     </remotesteps>
     <GUI>
-      <xloc>1392</xloc>
+      <xloc>1360</xloc>
       <yloc>240</yloc>
+      <draw>Y</draw>
+    </GUI>
+  </step>
+  <step>
+    <name>Filtrar respostas validas</name>
+    <type>FilterRows</type>
+    <description>Encaminha apenas respostas 2xx com JSON e Count inteiro não negativo.</description>
+    <distribute>Y</distribute>
+    <custom_distribution/>
+    <copies>1</copies>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <send_true_to>Selecionar campos recalls</send_true_to>
+    <send_false_to>Registar erro NHTSA</send_false_to>
+    <compare>
+      <condition>
+        <negated>N</negated>
+        <leftvalue>api_response_valid</leftvalue>
+        <function>=</function>
+        <rightvalue/>
+        <value>
+          <name>constant</name>
+          <type>String</type>
+          <text>Y</text>
+          <length>-1</length>
+          <precision>-1</precision>
+          <isnull>N</isnull>
+          <mask/>
+        </value>
+      </condition>
+    </compare>
+    <attributes/>
+    <cluster_schema/>
+    <remotesteps>
+      <input>
+      </input>
+      <output>
+      </output>
+    </remotesteps>
+    <GUI>
+      <xloc>1536</xloc>
+      <yloc>240</yloc>
+      <draw>Y</draw>
+    </GUI>
+  </step>
+  <step>
+    <name>Registar erro NHTSA</name>
+    <type>WriteToLog</type>
+    <description>Regista metadados de diagnóstico sem incluir credenciais.</description>
+    <distribute>Y</distribute>
+    <copies>1</copies>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <loglevel>log_level_error</loglevel>
+    <displayHeader>Y</displayHeader>
+    <logmessage>Resposta NHTSA inválida; a contagem será preservada como nula.</logmessage>
+    <fields>
+      <field><name>make</name></field>
+      <field><name>model</name></field>
+      <field><name>year</name></field>
+      <field><name>url_recalls</name></field>
+      <field><name>http_status</name></field>
+      <field><name>api_error_type</name></field>
+    </fields>
+    <attributes/>
+    <cluster_schema/>
+    <remotesteps>
+      <input>
+      </input>
+      <output>
+      </output>
+    </remotesteps>
+    <GUI>
+      <xloc>1712</xloc>
+      <yloc>368</yloc>
       <draw>Y</draw>
     </GUI>
   </step>
@@ -1036,6 +1147,14 @@ var url_recalls = "https://api.nhtsa.gov/recalls/recallsByVehicle?make="
       <field>
         <name>nhtsa_recalls_count</name>
         <rename/>
+      </field>
+      <field>
+        <name>api_error_type</name>
+        <rename>nhtsa_query_status</rename>
+      </field>
+      <field>
+        <name>http_status</name>
+        <rename>nhtsa_http_status</rename>
       </field>
       <select_unspecified>N</select_unspecified>
     </fields>
@@ -1135,6 +1254,30 @@ var url_recalls = "https://api.nhtsa.gov/recalls/recallsByVehicle?make="
         <name>nhtsa_recalls_count</name>
         <type>Integer</type>
         <format/>
+        <currency/>
+        <decimal/>
+        <group/>
+        <nullif/>
+        <trim_type>none</trim_type>
+        <length>-1</length>
+        <precision>0</precision>
+      </field>
+      <field>
+        <name>nhtsa_query_status</name>
+        <type>String</type>
+        <format/>
+        <currency/>
+        <decimal/>
+        <group/>
+        <nullif/>
+        <trim_type>both</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>nhtsa_http_status</name>
+        <type>Integer</type>
+        <format>#</format>
         <currency/>
         <decimal/>
         <group/>

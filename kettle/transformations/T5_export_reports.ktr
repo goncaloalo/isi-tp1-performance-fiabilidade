@@ -438,13 +438,13 @@
   </notepads>
   <connection>
     <name>Postgres_Carros</name>
-    <server>localhost</server>
+    <server>${PGHOST}</server>
     <type>POSTGRESQL</type>
     <access>Native</access>
-    <database>carros_etl</database>
-    <port>5432</port>
-    <username>postgres</username>
-    <password>Encrypted 2be98afc86aa7f2e4cb79ce108bc7fa8f</password>
+    <database>${PGDATABASE}</database>
+    <port>${PGPORT}</port>
+    <username>${PGUSER}</username>
+    <password>${PGPASSWORD}</password>
     <servername/>
     <data_tablespace/>
     <index_tablespace/>
@@ -467,7 +467,7 @@
       </attribute>
       <attribute>
         <code>PORT_NUMBER</code>
-        <attribute>5432</attribute>
+        <attribute>${PGPORT}</attribute>
       </attribute>
       <attribute>
         <code>PRESERVE_RESERVED_WORD_CASE</code>
@@ -540,8 +540,14 @@
         <valuefield/>
       </field>
       <field>
+        <aggregate>modelos_com_resposta_nhtsa</aggregate>
+        <subject>nhtsa_consulta_valida</subject>
+        <type>SUM</type>
+        <valuefield/>
+      </field>
+      <field>
         <aggregate>media_hp</aggregate>
-        <subject>engine_hp</subject>
+        <subject>engine_hp_agregacao</subject>
         <type>AVERAGE</type>
         <valuefield/>
       </field>
@@ -611,7 +617,7 @@
       <add_date>N</add_date>
       <add_time>N</add_time>
       <create_parent_folder>N</create_parent_folder>
-      <DoNotOpenNewFileInit>N</DoNotOpenNewFileInit>
+      <DoNotOpenNewFileInit>Y</DoNotOpenNewFileInit>
       <servlet_output>N</servlet_output>
     </file>
     <fields>
@@ -721,7 +727,7 @@
       <name>${Internal.Entry.Current.Directory}/../../data/output/bmw_m_resumo_series</name>
       <extention>xml</extention>
       <servlet_output>N</servlet_output>
-      <do_not_open_newfile_init>N</do_not_open_newfile_init>
+      <do_not_open_newfile_init>Y</do_not_open_newfile_init>
       <split>N</split>
       <add_date>N</add_date>
       <add_time>N</add_time>
@@ -761,10 +767,23 @@
       </field>
       <field>
         <content_type>Element</content_type>
+        <name>modelos_com_resposta_nhtsa</name>
+        <element/>
+        <type>Integer</type>
+        <format>#</format>
+        <currency/>
+        <decimal/>
+        <group/>
+        <nullif/>
+        <length>-1</length>
+        <precision>0</precision>
+      </field>
+      <field>
+        <content_type>Element</content_type>
         <name>media_hp</name>
         <element/>
         <type>Number</type>
-        <format>#.##</format>
+        <format>0.00</format>
         <currency/>
         <decimal>.</decimal>
         <group/>
@@ -851,7 +870,7 @@
       <schema_name/>
     </partitioning>
     <connection>Postgres_Carros</connection>
-    <sql>SELECT make, model, year, engine_hp, weight_kg, zero_to_sixty_mph, engine_cc, price_usd, versao, model_prefix, peso_ton, litros, hp_por_tonelada, hp_por_litro, series, body_type, nhtsa_recalls_count, recalls_por_100hp
+    <sql>SELECT make, model, year, engine_hp, CAST(engine_hp AS NUMERIC(10,2)) AS engine_hp_agregacao, CASE WHEN nhtsa_recalls_count IS NOT NULL THEN 1 ELSE 0 END AS nhtsa_consulta_valida, weight_kg, zero_to_sixty_mph, engine_cc, price_usd, versao, model_prefix, peso_ton, litros, hp_por_tonelada, hp_por_litro, series, body_type, nhtsa_recalls_count, recalls_por_100hp
 FROM bmw_m_performance_fiabilidade
 ORDER BY series ASC, year ASC</sql>
     <limit>0</limit>
