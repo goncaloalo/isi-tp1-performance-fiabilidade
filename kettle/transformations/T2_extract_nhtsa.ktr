@@ -430,7 +430,7 @@
     <created_date>2026/10/13 18:57:25.677</created_date>
     <modified_user>-</modified_user>
     <modified_date>2026/10/13 18:57:25.677</modified_date>
-    <key_for_session_key/>
+    <key_for_session_key>H4sIAAAAAAAA/wMAAAAAAAAAAAA=</key_for_session_key>
     <is_key_private>N</is_key_private>
   </info>
   <notepads>
@@ -468,21 +468,6 @@
     </hop>
     <hop>
       <from>Validar resposta NHTSA</from>
-      <to>Filtrar respostas validas</to>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Filtrar respostas validas</from>
-      <to>Selecionar campos recalls</to>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Filtrar respostas validas</from>
-      <to>Registar erro NHTSA</to>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Registar erro NHTSA</from>
       <to>Selecionar campos recalls</to>
       <enabled>Y</enabled>
     </hop>
@@ -492,6 +477,281 @@
       <enabled>Y</enabled>
     </hop>
   </order>
+  <step>
+    <name>Chamar API Recalls</name>
+    <type>Rest</type>
+    <description/>
+    <distribute>Y</distribute>
+    <custom_distribution/>
+    <copies>1</copies>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <applicationType>TEXT PLAIN</applicationType>
+    <method>GET</method>
+    <url/>
+    <urlInField>Y</urlInField>
+    <dynamicMethod>N</dynamicMethod>
+    <methodFieldName/>
+    <urlField>url_recalls</urlField>
+    <bodyField/>
+    <httpLogin/>
+    <httpPassword>Encrypted </httpPassword>
+    <proxyHost/>
+    <proxyPort/>
+    <preemptive>N</preemptive>
+    <trustStoreFile/>
+    <trustStorePassword>Encrypted </trustStorePassword>
+    <headers>
+      </headers>
+    <parameters>
+      </parameters>
+    <matrixParameters>
+      </matrixParameters>
+    <result>
+      <name>resposta_json</name>
+      <code>http_status</code>
+      <response_time/>
+      <response_header/>
+    </result>
+    <attributes/>
+    <cluster_schema/>
+    <remotesteps>
+      <input>
+      </input>
+      <output>
+      </output>
+    </remotesteps>
+    <GUI>
+      <xloc>1192</xloc>
+      <yloc>240</yloc>
+      <draw>Y</draw>
+    </GUI>
+  </step>
+  <step>
+    <name>Construir URL NHTSA</name>
+    <type>ScriptValueMod</type>
+    <description/>
+    <distribute>Y</distribute>
+    <custom_distribution/>
+    <copies>1</copies>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <compatible>N</compatible>
+    <optimizationLevel>9</optimizationLevel>
+    <jsScripts>
+      <jsScript>
+        <jsScript_type>0</jsScript_type>
+        <jsScript_name>Script 1</jsScript_name>
+        <jsScript_script>//Script here
+
+var url_recalls = "https://api.nhtsa.gov/recalls/recallsByVehicle?make=" 
+                  + encodeURIComponent(make) 
+                  + "&amp;model=" 
+                  + encodeURIComponent(model) 
+                  + "&amp;modelYear=" 
+                  + year;</jsScript_script>
+      </jsScript>
+    </jsScripts>
+    <fields>
+      <field>
+        <name>url_recalls</name>
+        <rename>url_recalls</rename>
+        <type>String</type>
+        <length>-1</length>
+        <precision>-1</precision>
+        <replace>N</replace>
+      </field>
+    </fields>
+    <attributes/>
+    <cluster_schema/>
+    <remotesteps>
+      <input>
+      </input>
+      <output>
+      </output>
+    </remotesteps>
+    <GUI>
+      <xloc>992</xloc>
+      <yloc>240</yloc>
+      <draw>Y</draw>
+    </GUI>
+  </step>
+  <step>
+    <name>Deduplicar para API</name>
+    <type>Unique</type>
+    <description/>
+    <distribute>Y</distribute>
+    <custom_distribution/>
+    <copies>1</copies>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <count_rows>N</count_rows>
+    <count_field/>
+    <reject_duplicate_row>N</reject_duplicate_row>
+    <error_description/>
+    <fields>
+      <field>
+        <name>make</name>
+        <case_insensitive>N</case_insensitive>
+      </field>
+      <field>
+        <name>model</name>
+        <case_insensitive>N</case_insensitive>
+      </field>
+      <field>
+        <name>year</name>
+        <case_insensitive>N</case_insensitive>
+      </field>
+    </fields>
+    <attributes/>
+    <cluster_schema/>
+    <remotesteps>
+      <input>
+      </input>
+      <output>
+      </output>
+    </remotesteps>
+    <GUI>
+      <xloc>792</xloc>
+      <yloc>240</yloc>
+      <draw>Y</draw>
+    </GUI>
+  </step>
+  <step>
+    <name>Exportar recalls CSV</name>
+    <type>TextFileOutput</type>
+    <description/>
+    <distribute>Y</distribute>
+    <custom_distribution/>
+    <copies>1</copies>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <separator>,</separator>
+    <enclosure>"</enclosure>
+    <enclosure_forced>N</enclosure_forced>
+    <enclosure_fix_disabled>N</enclosure_fix_disabled>
+    <header>Y</header>
+    <footer>N</footer>
+    <format>DOS</format>
+    <compression>None</compression>
+    <encoding>UTF-8</encoding>
+    <endedLine/>
+    <fileNameInField>N</fileNameInField>
+    <fileNameField/>
+    <create_parent_folder>Y</create_parent_folder>
+    <file>
+      <name>${Internal.Entry.Current.Directory}/../../data/processed/nhtsa_recalls</name>
+      <servlet_output>N</servlet_output>
+      <do_not_open_new_file_init>N</do_not_open_new_file_init>
+      <extention>csv</extention>
+      <append>N</append>
+      <split>N</split>
+      <haspartno>N</haspartno>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <SpecifyFormat>N</SpecifyFormat>
+      <date_time_format/>
+      <add_to_result_filenames>Y</add_to_result_filenames>
+      <pad>N</pad>
+      <fast_dump>N</fast_dump>
+      <splitevery/>
+    </file>
+    <fields>
+      <field>
+        <name>make</name>
+        <type>String</type>
+        <format/>
+        <currency/>
+        <decimal/>
+        <group/>
+        <nullif/>
+        <trim_type>both</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>model</name>
+        <type>String</type>
+        <format/>
+        <currency/>
+        <decimal/>
+        <group/>
+        <nullif/>
+        <trim_type>both</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>year</name>
+        <type>Integer</type>
+        <format>#</format>
+        <currency>€</currency>
+        <decimal>,</decimal>
+        <group>.</group>
+        <nullif/>
+        <trim_type>none</trim_type>
+        <length>15</length>
+        <precision>0</precision>
+      </field>
+      <field>
+        <name>nhtsa_recalls_count</name>
+        <type>Integer</type>
+        <format/>
+        <currency/>
+        <decimal/>
+        <group/>
+        <nullif/>
+        <trim_type>none</trim_type>
+        <length>-1</length>
+        <precision>0</precision>
+      </field>
+      <field>
+        <name>nhtsa_query_status</name>
+        <type>String</type>
+        <format/>
+        <currency/>
+        <decimal/>
+        <group/>
+        <nullif/>
+        <trim_type>both</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>nhtsa_http_status</name>
+        <type>Integer</type>
+        <format>#</format>
+        <currency/>
+        <decimal/>
+        <group/>
+        <nullif/>
+        <trim_type>none</trim_type>
+        <length>-1</length>
+        <precision>0</precision>
+      </field>
+    </fields>
+    <attributes/>
+    <cluster_schema/>
+    <remotesteps>
+      <input>
+      </input>
+      <output>
+      </output>
+    </remotesteps>
+    <GUI>
+      <xloc>1712</xloc>
+      <yloc>240</yloc>
+      <draw>Y</draw>
+    </GUI>
+  </step>
   <step>
     <name>Ler specs_limpas CSV</name>
     <type>CsvInput</type>
@@ -710,46 +970,6 @@
     </GUI>
   </step>
   <step>
-    <name>Selecionar marca modelo ano</name>
-    <type>SelectValues</type>
-    <description/>
-    <distribute>Y</distribute>
-    <custom_distribution/>
-    <copies>1</copies>
-    <partitioning>
-      <method>none</method>
-      <schema_name/>
-    </partitioning>
-    <fields>
-      <field>
-        <name>make</name>
-        <rename/>
-      </field>
-      <field>
-        <name>model_prefix</name>
-        <rename>model</rename>
-      </field>
-      <field>
-        <name>year</name>
-        <rename/>
-      </field>
-      <select_unspecified>N</select_unspecified>
-    </fields>
-    <attributes/>
-    <cluster_schema/>
-    <remotesteps>
-      <input>
-      </input>
-      <output>
-      </output>
-    </remotesteps>
-    <GUI>
-      <xloc>400</xloc>
-      <yloc>240</yloc>
-      <draw>Y</draw>
-    </GUI>
-  </step>
-  <step>
     <name>Ordenar por modelo e ano</name>
     <type>SortRows</type>
     <description/>
@@ -808,8 +1028,8 @@
     </GUI>
   </step>
   <step>
-    <name>Deduplicar para API</name>
-    <type>Unique</type>
+    <name>Selecionar campos recalls</name>
+    <type>SelectValues</type>
     <description/>
     <distribute>Y</distribute>
     <custom_distribution/>
@@ -818,23 +1038,28 @@
       <method>none</method>
       <schema_name/>
     </partitioning>
-    <count_rows>N</count_rows>
-    <count_field/>
-    <reject_duplicate_row>N</reject_duplicate_row>
-    <error_description/>
     <fields>
       <field>
         <name>make</name>
-        <case_insensitive>N</case_insensitive>
       </field>
       <field>
         <name>model</name>
-        <case_insensitive>N</case_insensitive>
       </field>
       <field>
         <name>year</name>
-        <case_insensitive>N</case_insensitive>
       </field>
+      <field>
+        <name>nhtsa_recalls_count</name>
+      </field>
+      <field>
+        <name>api_error_type</name>
+        <rename>nhtsa_query_status</rename>
+      </field>
+      <field>
+        <name>http_status</name>
+        <rename>nhtsa_http_status</rename>
+      </field>
+      <select_unspecified>N</select_unspecified>
     </fields>
     <attributes/>
     <cluster_schema/>
@@ -845,14 +1070,14 @@
       </output>
     </remotesteps>
     <GUI>
-      <xloc>792</xloc>
+      <xloc>1536</xloc>
       <yloc>240</yloc>
       <draw>Y</draw>
     </GUI>
   </step>
   <step>
-    <name>Construir URL NHTSA</name>
-    <type>ScriptValueMod</type>
+    <name>Selecionar marca modelo ano</name>
+    <type>SelectValues</type>
     <description/>
     <distribute>Y</distribute>
     <custom_distribution/>
@@ -861,31 +1086,18 @@
       <method>none</method>
       <schema_name/>
     </partitioning>
-    <compatible>N</compatible>
-    <optimizationLevel>9</optimizationLevel>
-    <jsScripts>
-      <jsScript>
-        <jsScript_type>0</jsScript_type>
-        <jsScript_name>Script 1</jsScript_name>
-        <jsScript_script>//Script here
-
-var url_recalls = "https://api.nhtsa.gov/recalls/recallsByVehicle?make=" 
-                  + encodeURIComponent(make) 
-                  + "&amp;model=" 
-                  + encodeURIComponent(model) 
-                  + "&amp;modelYear=" 
-                  + year;</jsScript_script>
-      </jsScript>
-    </jsScripts>
     <fields>
       <field>
-        <name>url_recalls</name>
-        <rename>url_recalls</rename>
-        <type>String</type>
-        <length>-1</length>
-        <precision>-1</precision>
-        <replace>N</replace>
+        <name>make</name>
       </field>
+      <field>
+        <name>model_prefix</name>
+        <rename>model</rename>
+      </field>
+      <field>
+        <name>year</name>
+      </field>
+      <select_unspecified>N</select_unspecified>
     </fields>
     <attributes/>
     <cluster_schema/>
@@ -896,59 +1108,7 @@ var url_recalls = "https://api.nhtsa.gov/recalls/recallsByVehicle?make="
       </output>
     </remotesteps>
     <GUI>
-      <xloc>992</xloc>
-      <yloc>240</yloc>
-      <draw>Y</draw>
-    </GUI>
-  </step>
-  <step>
-    <name>Chamar API Recalls</name>
-    <type>Rest</type>
-    <description/>
-    <distribute>Y</distribute>
-    <custom_distribution/>
-    <copies>1</copies>
-    <partitioning>
-      <method>none</method>
-      <schema_name/>
-    </partitioning>
-    <applicationType>TEXT PLAIN</applicationType>
-    <method>GET</method>
-    <url/>
-    <urlInField>Y</urlInField>
-    <dynamicMethod>N</dynamicMethod>
-    <methodFieldName/>
-    <urlField>url_recalls</urlField>
-    <bodyField/>
-    <httpLogin/>
-    <httpPassword>Encrypted </httpPassword>
-    <proxyHost/>
-    <proxyPort/>
-    <preemptive>N</preemptive>
-    <trustStoreFile/>
-    <trustStorePassword>Encrypted </trustStorePassword>
-    <headers>
-      </headers>
-    <parameters>
-      </parameters>
-    <matrixParameters>
-      </matrixParameters>
-    <result>
-      <name>resposta_json</name>
-      <code>http_status</code>
-      <response_time/>
-      <response_header/>
-    </result>
-    <attributes/>
-    <cluster_schema/>
-    <remotesteps>
-      <input>
-      </input>
-      <output>
-      </output>
-    </remotesteps>
-    <GUI>
-      <xloc>1192</xloc>
+      <xloc>400</xloc>
       <yloc>240</yloc>
       <draw>Y</draw>
     </GUI>
@@ -970,46 +1130,26 @@ var url_recalls = "https://api.nhtsa.gov/recalls/recallsByVehicle?make="
       <jsScript>
         <jsScript_type>0</jsScript_type>
         <jsScript_name>Validar HTTP e JSON</jsScript_name>
-        <jsScript_script>var api_response_valid = "N";
-var api_error_type = "ERRO_DESCONHECIDO";
+        <jsScript_script>var api_error_type = "ERRO";
 var nhtsa_recalls_count = null;
 var status_num = parseInt(String(http_status), 10);
 
-if (isNaN(status_num)) {
-  api_error_type = "SEM_STATUS_HTTP";
-} else if (status_num &lt; 200 || status_num &gt;= 300) {
-  api_error_type = "ERRO_HTTP_" + status_num;
-} else {
+if (status_num >= 200 &amp;&amp; status_num &lt; 300) {
   try {
     var payload = JSON.parse(String(resposta_json));
-    if (payload === null || typeof payload !== "object" ||
-        !Object.prototype.hasOwnProperty.call(payload, "Count")) {
-      api_error_type = "COUNT_AUSENTE";
-    } else {
-      var count_num = Number(payload.Count);
-      if (!isFinite(count_num) || count_num &lt; 0 || Math.floor(count_num) !== count_num) {
-        api_error_type = "COUNT_INVALIDO";
-      } else {
-        nhtsa_recalls_count = count_num;
-        api_response_valid = "Y";
-        api_error_type = count_num === 0 ? "OK_ZERO" : "OK";
-      }
+    if (payload !== null &amp;&amp; typeof payload.Count === "number" &amp;&amp;
+        isFinite(payload.Count) &amp;&amp; payload.Count >= 0 &amp;&amp;
+        Math.floor(payload.Count) === payload.Count) {
+      nhtsa_recalls_count = payload.Count;
+      api_error_type = "OK";
     }
   } catch (e) {
-    api_error_type = "JSON_INVALIDO";
+    api_error_type = "ERRO";
   }
 }</jsScript_script>
       </jsScript>
     </jsScripts>
     <fields>
-      <field>
-        <name>api_response_valid</name>
-        <rename>api_response_valid</rename>
-        <type>String</type>
-        <length>1</length>
-        <precision>-1</precision>
-        <replace>N</replace>
-      </field>
       <field>
         <name>api_error_type</name>
         <rename>api_error_type</rename>
@@ -1037,266 +1177,6 @@ if (isNaN(status_num)) {
     </remotesteps>
     <GUI>
       <xloc>1360</xloc>
-      <yloc>240</yloc>
-      <draw>Y</draw>
-    </GUI>
-  </step>
-  <step>
-    <name>Filtrar respostas validas</name>
-    <type>FilterRows</type>
-    <description>Encaminha apenas respostas 2xx com JSON e Count inteiro não negativo.</description>
-    <distribute>Y</distribute>
-    <custom_distribution/>
-    <copies>1</copies>
-    <partitioning>
-      <method>none</method>
-      <schema_name/>
-    </partitioning>
-    <send_true_to>Selecionar campos recalls</send_true_to>
-    <send_false_to>Registar erro NHTSA</send_false_to>
-    <compare>
-      <condition>
-        <negated>N</negated>
-        <leftvalue>api_response_valid</leftvalue>
-        <function>=</function>
-        <rightvalue/>
-        <value>
-          <name>constant</name>
-          <type>String</type>
-          <text>Y</text>
-          <length>-1</length>
-          <precision>-1</precision>
-          <isnull>N</isnull>
-          <mask/>
-        </value>
-      </condition>
-    </compare>
-    <attributes/>
-    <cluster_schema/>
-    <remotesteps>
-      <input>
-      </input>
-      <output>
-      </output>
-    </remotesteps>
-    <GUI>
-      <xloc>1536</xloc>
-      <yloc>240</yloc>
-      <draw>Y</draw>
-    </GUI>
-  </step>
-  <step>
-    <name>Registar erro NHTSA</name>
-    <type>WriteToLog</type>
-    <description>Regista metadados de diagnóstico sem incluir credenciais.</description>
-    <distribute>Y</distribute>
-    <copies>1</copies>
-    <partitioning>
-      <method>none</method>
-      <schema_name/>
-    </partitioning>
-    <loglevel>log_level_error</loglevel>
-    <displayHeader>Y</displayHeader>
-    <logmessage>Resposta NHTSA inválida; a contagem será preservada como nula.</logmessage>
-    <fields>
-      <field><name>make</name></field>
-      <field><name>model</name></field>
-      <field><name>year</name></field>
-      <field><name>url_recalls</name></field>
-      <field><name>http_status</name></field>
-      <field><name>api_error_type</name></field>
-    </fields>
-    <attributes/>
-    <cluster_schema/>
-    <remotesteps>
-      <input>
-      </input>
-      <output>
-      </output>
-    </remotesteps>
-    <GUI>
-      <xloc>1712</xloc>
-      <yloc>368</yloc>
-      <draw>Y</draw>
-    </GUI>
-  </step>
-  <step>
-    <name>Selecionar campos recalls</name>
-    <type>SelectValues</type>
-    <description/>
-    <distribute>Y</distribute>
-    <custom_distribution/>
-    <copies>1</copies>
-    <partitioning>
-      <method>none</method>
-      <schema_name/>
-    </partitioning>
-    <fields>
-      <field>
-        <name>make</name>
-        <rename/>
-      </field>
-      <field>
-        <name>model</name>
-        <rename/>
-      </field>
-      <field>
-        <name>year</name>
-        <rename/>
-      </field>
-      <field>
-        <name>nhtsa_recalls_count</name>
-        <rename/>
-      </field>
-      <field>
-        <name>api_error_type</name>
-        <rename>nhtsa_query_status</rename>
-      </field>
-      <field>
-        <name>http_status</name>
-        <rename>nhtsa_http_status</rename>
-      </field>
-      <select_unspecified>N</select_unspecified>
-    </fields>
-    <attributes/>
-    <cluster_schema/>
-    <remotesteps>
-      <input>
-      </input>
-      <output>
-      </output>
-    </remotesteps>
-    <GUI>
-      <xloc>1592</xloc>
-      <yloc>240</yloc>
-      <draw>Y</draw>
-    </GUI>
-  </step>
-  <step>
-    <name>Exportar recalls CSV</name>
-    <type>TextFileOutput</type>
-    <description/>
-    <distribute>Y</distribute>
-    <custom_distribution/>
-    <copies>1</copies>
-    <partitioning>
-      <method>none</method>
-      <schema_name/>
-    </partitioning>
-    <separator>,</separator>
-    <enclosure>"</enclosure>
-    <enclosure_forced>N</enclosure_forced>
-    <enclosure_fix_disabled>N</enclosure_fix_disabled>
-    <header>Y</header>
-    <footer>N</footer>
-    <format>DOS</format>
-    <compression>None</compression>
-    <encoding/>
-    <endedLine/>
-    <fileNameInField>N</fileNameInField>
-    <fileNameField/>
-    <create_parent_folder>Y</create_parent_folder>
-    <file>
-      <name>${Internal.Entry.Current.Directory}/../../data/processed/nhtsa_recalls</name>
-      <servlet_output>N</servlet_output>
-      <do_not_open_new_file_init>N</do_not_open_new_file_init>
-      <extention>csv</extention>
-      <append>N</append>
-      <split>N</split>
-      <haspartno>N</haspartno>
-      <add_date>N</add_date>
-      <add_time>N</add_time>
-      <SpecifyFormat>N</SpecifyFormat>
-      <date_time_format/>
-      <add_to_result_filenames>Y</add_to_result_filenames>
-      <pad>N</pad>
-      <fast_dump>N</fast_dump>
-      <splitevery/>
-    </file>
-    <fields>
-      <field>
-        <name>make</name>
-        <type>String</type>
-        <format/>
-        <currency/>
-        <decimal/>
-        <group/>
-        <nullif/>
-        <trim_type>both</trim_type>
-        <length>-1</length>
-        <precision>-1</precision>
-      </field>
-      <field>
-        <name>model</name>
-        <type>String</type>
-        <format/>
-        <currency/>
-        <decimal/>
-        <group/>
-        <nullif/>
-        <trim_type>both</trim_type>
-        <length>-1</length>
-        <precision>-1</precision>
-      </field>
-      <field>
-        <name>year</name>
-        <type>Integer</type>
-        <format>#</format>
-        <currency>€</currency>
-        <decimal>,</decimal>
-        <group>.</group>
-        <nullif/>
-        <trim_type>none</trim_type>
-        <length>15</length>
-        <precision>0</precision>
-      </field>
-      <field>
-        <name>nhtsa_recalls_count</name>
-        <type>Integer</type>
-        <format/>
-        <currency/>
-        <decimal/>
-        <group/>
-        <nullif/>
-        <trim_type>none</trim_type>
-        <length>-1</length>
-        <precision>0</precision>
-      </field>
-      <field>
-        <name>nhtsa_query_status</name>
-        <type>String</type>
-        <format/>
-        <currency/>
-        <decimal/>
-        <group/>
-        <nullif/>
-        <trim_type>both</trim_type>
-        <length>-1</length>
-        <precision>-1</precision>
-      </field>
-      <field>
-        <name>nhtsa_http_status</name>
-        <type>Integer</type>
-        <format>#</format>
-        <currency/>
-        <decimal/>
-        <group/>
-        <nullif/>
-        <trim_type>none</trim_type>
-        <length>-1</length>
-        <precision>0</precision>
-      </field>
-    </fields>
-    <attributes/>
-    <cluster_schema/>
-    <remotesteps>
-      <input>
-      </input>
-      <output>
-      </output>
-    </remotesteps>
-    <GUI>
-      <xloc>1792</xloc>
       <yloc>240</yloc>
       <draw>Y</draw>
     </GUI>

@@ -63,25 +63,21 @@ def nullable_number(value: str, cast):
 
 def classify_nhtsa(status: int | None, body: str | None, error: str | None = None):
     """Espelho independente das regras documentadas em T2, usado com fixtures."""
-    if error == "timeout":
-        return None, "TIMEOUT"
-    if status is None:
-        return None, "SEM_STATUS_HTTP"
-    if not 200 <= status < 300:
-        return None, f"ERRO_HTTP_{status}"
+    if error or status is None or not 200 <= status < 300:
+        return None, "ERRO"
     try:
         payload = json.loads(body or "")
     except json.JSONDecodeError:
-        return None, "JSON_INVALIDO"
+        return None, "ERRO"
     if not isinstance(payload, dict) or "Count" not in payload:
-        return None, "COUNT_AUSENTE"
+        return None, "ERRO"
     count = payload["Count"]
     if isinstance(count, bool) or not isinstance(count, (int, float)):
-        return None, "COUNT_INVALIDO"
+        return None, "ERRO"
     if not math.isfinite(count) or count < 0 or int(count) != count:
-        return None, "COUNT_INVALIDO"
+        return None, "ERRO"
     count = int(count)
-    return count, "OK_ZERO" if count == 0 else "OK"
+    return count, "OK"
 
 
 class DataQualityTests(unittest.TestCase):
@@ -245,9 +241,18 @@ class KettleStructureTests(unittest.TestCase):
         t2 = ET.parse(ROOT / "kettle" / "transformations" / "T2_extract_nhtsa.ktr").getroot()
         script = next(s for s in t2.findall("step") if s.findtext("name") == "Validar resposta NHTSA")
         source = script.findtext("./jsScripts/jsScript/jsScript_script") or ""
-        for state in ("ERRO_HTTP_", "JSON_INVALIDO", "COUNT_AUSENTE", "COUNT_INVALIDO", "OK_ZERO"):
-            self.assertIn(state, source)
+        self.assertEqual({"OK", "ERRO"}, set(re.findall(r'api_error_type = "([^"]+)"', source)))
+        self.assertNotIn("Registar erro NHTSA", {s.findtext("name") for s in t2.findall("step")})
+        self.assertNotIn("Filtrar respostas validas", {s.findtext("name") for s in t2.findall("step")})
+        self.assertNotIn("api_response_valid", source)
+        successors = [h.findtext("to") for h in t2.findall("./order/hop")
+                      if h.findtext("from") == "Validar resposta NHTSA" and h.findtext("enabled") == "Y"]
+        self.assertEqual(["Selecionar campos recalls"], successors)
+        selected = next(s for s in t2.findall("step") if s.findtext("name") == "Selecionar campos recalls")
+        output_fields = [f.findtext("rename") or f.findtext("name") for f in selected.findall("./fields/field")]
         t3 = ET.parse(ROOT / "kettle" / "transformations" / "T3_consolidate_metrics.ktr").getroot()
+        recall_input = next(s for s in t3.findall("step") if s.findtext("name") == "Ler nhtsa_recalls CSV")
+        self.assertEqual([f.findtext("name") for f in recall_input.findall("./fields/field")], output_fields)
         self.assertNotIn("Tratar recalls nulos", {s.findtext("name") for s in t3.findall("step")})
 
     def test_postgres_has_no_versioned_secret_and_uses_upsert(self):
@@ -291,20 +296,25 @@ class NhtsaFixtureTests(unittest.TestCase):
         self.assertEqual((3, "OK"), classify_nhtsa(200, self.fixture("valid_positive.json")))
 
     def test_valid_zero_is_distinct(self):
-        self.assertEqual((0, "OK_ZERO"), classify_nhtsa(200, self.fixture("valid_zero.json")))
+        self.assertEqual((0, "OK"), classify_nhtsa(200, self.fixture("valid_zero.json")))
 
     def test_http_error_does_not_become_zero(self):
-        self.assertEqual((None, "ERRO_HTTP_500"), classify_nhtsa(500, self.fixture("valid_zero.json")))
+        for status in (None, 400, 500):
+            with self.subTest(status=status):
+                self.assertEqual((None, "ERRO"), classify_nhtsa(status, self.fixture("valid_zero.json")))
 
     def test_invalid_json(self):
-        self.assertEqual((None, "JSON_INVALIDO"), classify_nhtsa(200, self.fixture("invalid_json.txt")))
+        self.assertEqual((None, "ERRO"), classify_nhtsa(200, self.fixture("invalid_json.txt")))
 
     def test_missing_and_invalid_count(self):
-        self.assertEqual((None, "COUNT_AUSENTE"), classify_nhtsa(200, self.fixture("missing_count.json")))
-        self.assertEqual((None, "COUNT_INVALIDO"), classify_nhtsa(200, self.fixture("invalid_count.json")))
+        self.assertEqual((None, "ERRO"), classify_nhtsa(200, self.fixture("missing_count.json")))
+        self.assertEqual((None, "ERRO"), classify_nhtsa(200, self.fixture("invalid_count.json")))
+        for count in (None, True, False, "", "0", -1, 1.5):
+            with self.subTest(count=count):
+                self.assertEqual((None, "ERRO"), classify_nhtsa(200, json.dumps({"Count": count})))
 
     def test_timeout(self):
-        self.assertEqual((None, "TIMEOUT"), classify_nhtsa(None, None, error="timeout"))
+        self.assertEqual((None, "ERRO"), classify_nhtsa(None, None, error="timeout"))
 
 
 if __name__ == "__main__":
