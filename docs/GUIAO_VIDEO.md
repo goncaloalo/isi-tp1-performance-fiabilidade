@@ -18,7 +18,7 @@ Em 20/10/2026, o autor confirmou a execução manual de `J_main`: T1 a T5 com `r
 2. Confirmar a ligação `Postgres_Carros`. As ligações atuais têm passwords ofuscadas guardadas, a resolver antes da entrega; não mostrar passwords.
 3. Usar uma base nova ou salvaguardada e confirmar o esquema de `sql/01_schema.sql`.
 4. Rever [CHECKLIST_CAPTURAS.md](CHECKLIST_CAPTURAS.md) e [CHECKLIST_DEMONSTRACAO.md](CHECKLIST_DEMONSTRACAO.md). Confrontar indicações históricas com os KTR atuais.
-5. Preparar os CSV, JSON e XML para apresentação e executar os testes locais.
+5. Preparar os CSV, JSON e XML para apresentação e rever os logs das execuções reais.
 6. Fechar notificações e janelas com dados pessoais. Testar o microfone.
 
 ## 2. Sequência de gravação
@@ -90,11 +90,7 @@ Destacar as médias 422.50, 395.00, 487.75, 503.75, 533.50 e 600.00 hp. Não int
 
 Executar o job se o ambiente estiver preparado, ou mostrar uma evidência real guardada dessa execução. Não atribuir a capturas antigas a execução de 20/10/2026 sem confirmação. Não prometer uma duração de execução.
 
-Se houver tempo, mostrar o resultado de:
-
-```powershell
-python -m unittest discover -s tests -v
-```
+Mostrar o resultado do job e os quatro totais preparados por T6. Os testes Python da revisão anterior já não fazem parte da entrega.
 
 ### 4:10–4:40 — resultados e conclusão
 

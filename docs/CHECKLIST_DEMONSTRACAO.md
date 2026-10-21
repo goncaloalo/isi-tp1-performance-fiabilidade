@@ -7,7 +7,7 @@
 - [ ] PostgreSQL instalado e acessível.
 - [ ] Base `carros_etl` nova ou salvaguardada.
 - [ ] `sql/01_schema.sql` executado sem erros.
-- [ ] Resolver passwords PostgreSQL ofuscadas já guardadas em T4/T5/T6 e confirmar configuração local sem expor segredos.
+- [ ] Confirmar as ligações PostgreSQL locais e introduzir a password SMTP manualmente, sem a guardar.
 - [ ] Ligação `Postgres_Carros` testada no Spoon.
 - [ ] Acesso a `https://api.nhtsa.gov` confirmado.
 - [ ] T1 executada: 29 lidos, 1 rejeitado, 28 válidos.
@@ -17,7 +17,6 @@
 - [ ] T4 reexecutada e contagem mantida em 28.
 - [ ] T5 executada: 28 objetos JSON e 6 séries XML.
 - [ ] Médias XML confirmadas com duas casas decimais.
-- [ ] `python -m unittest discover -s tests -v` sem falhas.
 - [ ] Nenhuma password visível no ecrã ou nos logs.
 - [x] Capturas finais auditadas e sincronizadas em 21/10/2026; ver inventário.
 

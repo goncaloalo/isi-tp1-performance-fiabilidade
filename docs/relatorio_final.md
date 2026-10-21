@@ -357,6 +357,8 @@ Os resultados não sustentam conclusões causais sobre motores turbo, qualidade 
 
 ### 4.3. Testes locais
 
+A infraestrutura de testes Python foi retirada na simplificação de 21/10/2026, por não ser necessária à execução do Pentaho. Os resultados abaixo ficam preservados como registo histórico.
+
 A suite `unittest`, sem dependências externas, registou 23 testes aprovados na revisão técnica. Verifica CSV, 28 modelos válidos, quarentena, duplicados, campos obrigatórios, fórmulas, preço nulo do M5 E34, coerência CSV/JSON, agregações XML, médias decimais e estrutura Kettle.
 
 As fixtures locais cobrem zero válido, erro HTTP, timeout, JSON inválido e `Count` ausente/inválido. São testes de regras e artefactos, distintos da execução manual agora confirmada.

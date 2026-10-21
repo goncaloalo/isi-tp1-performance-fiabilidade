@@ -4,7 +4,7 @@
 
 [Execução com Mail bem-sucedido](docs/diagramas/J_main_metricas_execucao.png) e [email recebido](docs/diagramas/T6_email_recebido.png) comprovam os resultados apresentados: 28 veículos, 15 respostas válidas, 13 sem dados e 6 séries. O utilizador confirmou sucesso com password manual; ${SMTP_PASSWORD} falhou com 535 e não está validado. Captura SMTP e job guardado com password vazia.
 
-**Antes de entregar:** T4/T5/T6 contêm campos de password PostgreSQL ofuscados e não vazios; o job tem caminho absoluto local preexistente para T6 e não tem hop de falha de Mail. A configuração externa descrita na revisão anterior não corresponde às ligações guardadas atuais. Nenhum valor secreto foi reproduzido, decifrado ou alterado. Esta auditoria não executou Pentaho; sem commit, push ou merge.
+**Configuração local preservada:** T4/T5/T6 usam PostgreSQL local, com as credenciais ofuscadas preexistentes. O caminho absoluto de T6 foi mantido para este computador. No Mail, introduzir a password SMTP manualmente e não guardar o job com essa password. O Mail não tem hop de falha explícito. A configuração externa descrita na revisão anterior é histórica e não corresponde às ligações atuais.
 
 - **Unidade curricular:** Integração de Sistemas de Informação (ISI)
 - **Curso:** Licenciatura em Engenharia de Sistemas Informáticos — IPCA / EST
@@ -33,8 +33,7 @@ data/output/              catálogo JSON e resumo XML
 kettle/transformations/   T1 a T6
 kettle/jobs/              J_main.kjb
 sql/                      esquema PostgreSQL
-tests/                    testes locais e fixtures NHTSA
-config/                   exemplo de propriedades Kettle
+config/                   exemplo histórico de propriedades Kettle
 docs/                     relatório, guião e checklists
 docs/diagramas/           capturas existentes do Spoon
 ```
@@ -63,7 +62,7 @@ Por exemplo, M3 E46 CSL (2003) é consultado como BMW M3 de 2003. A resposta nã
 
 ## 4. Requisitos e configuração
 
-Na revisão técnica foram usados **PDI 10.2.0.0-222**, **Java 21.0.12.1**, Python 3.14.5 e Git 2.45.0. É necessária uma instância PostgreSQL, o driver JDBC no PDI e acesso HTTPS à NHTSA. Não se assume compatibilidade com outras versões sem teste.
+Na revisão técnica foram usados **PDI 10.2.0.0-222**, **Java 21.0.12.1** e Git 2.45.0. É necessária uma instância PostgreSQL, o driver JDBC no PDI e acesso HTTPS à NHTSA. Python não é necessário para executar a pipeline.
 
 Numa base nova ou salvaguardada, preparar a tabela:
 
@@ -74,22 +73,17 @@ psql -h localhost -p 5432 -U postgres -d carros_etl -f .\sql\01_schema.sql
 
 O DDL não migra automaticamente uma tabela antiga já existente.
 
-Nos KTR atuais, T4 e T5 usam `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER` e `PGPASSWORD`. Configurar estas propriedades em `%USERPROFILE%\.kettle\kettle.properties`, usando `config/kettle.properties.example` como referência. Preservar propriedades locais existentes e reiniciar o Spoon após alterações. Não guardar passwords no Git. Definir apenas variáveis PowerShell não as tornou automaticamente disponíveis no PDI testado.
+T4, T5 e T6 usam a ligação direta `Postgres_Carros`: `localhost:5432`, base `carros_etl`, utilizador `postgres`. As configurações locais funcionais foram preservadas. O exemplo `config/kettle.properties.example` pertence à revisão anterior e não é necessário para estas ligações.
 
 No Spoon, abrir a ligação `Postgres_Carros` e usar **Test**.
 
-## 5. Execução e testes
+## 5. Execução e verificação
 
-No Spoon, abrir `kettle/jobs/J_main.kjb`, executar localmente com log `Basic` e confirmar `result=true` em T1 a T5. Rever também as mensagens NHTSA: sucesso do job não significa que todas as consultas HTTP sejam válidas.
+No Spoon, abrir `kettle/jobs/J_main.kjb`, introduzir a password SMTP no Mail sem a guardar, executar localmente com log `Basic` e confirmar `result=true` em T1 a T6 e Mail. Rever também os estados NHTSA: sucesso do job não significa que todas as consultas HTTP sejam válidas.
 
-No Windows, a partir da raiz do repositório:
+Confirmar os quatro totais preparados por T6: 28 veículos, 15 respostas válidas, 13 sem dados e 6 séries. O envio foi validado pelo utilizador com password manual no Spoon; a execução automática do email sem essa introdução não está validada.
 
-```powershell
-& "C:\caminho\para\data-integration\Kitchen.bat" /file:"$PWD\kettle\jobs\J_main.kjb" /level:Basic
-python -m unittest discover -s tests -v
-```
-
-A revisão técnica registou 23 testes aprovados, sobre CSV, fórmulas, nulos, JSON/XML, estrutura Kettle e fixtures HTTP. Estes testes são distintos da execução manual confirmada pelo autor. Não foi confirmado um tempo de execução para essa execução.
+Os testes Python da revisão anterior foram retirados por não serem necessários ao Pentaho. Os resultados históricos permanecem na documentação de decisões e revisão.
 
 ## 6. Resultados e limitações
 
@@ -103,7 +97,7 @@ As médias de potência por série são 422.50, 395.00, 487.75, 503.75, 533.50 e
 - O job não constitui uma transação distribuída entre API, ficheiros e PostgreSQL.
 - O PDI testado devolveu código de processo 0 numa falha de ligação em Pan; rever também o log e o resultado Kettle.
 - Capturas antigas podem mostrar configurações anteriores. A checklist deve ser confrontada com os KTR atuais.
-- Vídeo, URL publicado e QR Code continuam por produzir. O PDF existente não foi atualizado nesta resolução.
+- Vídeo, URL publicado e QR Code continuam por produzir. O PDF intermédio foi removido; o PDF final ainda não foi criado.
 
 ## 7. Documentação
 
@@ -114,6 +108,6 @@ As médias de potência por série são 422.50, 395.00, 487.75, 503.75, 533.50 e
 - [Inventário de diagramas](docs/diagramas/README.md)
 - [Decisões ETL](docs/decisoes_etl.md)
 - [Registo histórico da revisão](docs/REVISAO_FINAL.md)
-- [PDF técnico existente](output/pdf/relatorio_final_revisao.pdf)
+- PDF final: ainda não gerado; a fonte é `docs/relatorio_final.md`.
 
 Os registos históricos e algumas capturas antecedem a execução manual agora confirmada. O estado atualizado encontra-se neste README e no relatório.
