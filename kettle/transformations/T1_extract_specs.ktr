@@ -547,7 +547,7 @@
       </output>
     </remotesteps>
     <GUI>
-      <xloc>1184</xloc>
+      <xloc>1296</xloc>
       <yloc>48</yloc>
       <draw>Y</draw>
     </GUI>
@@ -633,7 +633,7 @@
       </output>
     </remotesteps>
     <GUI>
-      <xloc>1296</xloc>
+      <xloc>1392</xloc>
       <yloc>48</yloc>
       <draw>Y</draw>
     </GUI>
@@ -882,7 +882,7 @@
       </output>
     </remotesteps>
     <GUI>
-      <xloc>1632</xloc>
+      <xloc>1872</xloc>
       <yloc>48</yloc>
       <draw>Y</draw>
     </GUI>
@@ -935,7 +935,7 @@
       </output>
     </remotesteps>
     <GUI>
-      <xloc>704</xloc>
+      <xloc>816</xloc>
       <yloc>48</yloc>
       <draw>Y</draw>
     </GUI>
@@ -1062,7 +1062,7 @@
       </output>
     </remotesteps>
     <GUI>
-      <xloc>1440</xloc>
+      <xloc>1520</xloc>
       <yloc>176</yloc>
       <draw>Y</draw>
     </GUI>
@@ -1292,7 +1292,7 @@
       </output>
     </remotesteps>
     <GUI>
-      <xloc>1440</xloc>
+      <xloc>1520</xloc>
       <yloc>48</yloc>
       <draw>Y</draw>
     </GUI>
@@ -1350,65 +1350,8 @@
       </output>
     </remotesteps>
     <GUI>
-      <xloc>880</xloc>
+      <xloc>992</xloc>
       <yloc>48</yloc>
-      <draw>Y</draw>
-    </GUI>
-  </step>
-  <step>
-    <name>Rejeitados lookup series</name>
-    <type>TextFileOutput</type>
-    <description/>
-    <distribute>Y</distribute>
-    <custom_distribution/>
-    <copies>1</copies>
-    <partitioning>
-      <method>none</method>
-      <schema_name/>
-    </partitioning>
-    <separator>,</separator>
-    <enclosure>"</enclosure>
-    <enclosure_forced>N</enclosure_forced>
-    <enclosure_fix_disabled>N</enclosure_fix_disabled>
-    <header>Y</header>
-    <footer>N</footer>
-    <format>DOS</format>
-    <compression>None</compression>
-    <encoding>UTF-8</encoding>
-    <endedLine/>
-    <fileNameInField>N</fileNameInField>
-    <fileNameField/>
-    <create_parent_folder>Y</create_parent_folder>
-    <file>
-      <name>${Internal.Entry.Current.Directory}/../../data/staging/rejeitados_lookup_series</name>
-      <servlet_output>N</servlet_output>
-      <do_not_open_new_file_init>N</do_not_open_new_file_init>
-      <extention>csv</extention>
-      <append>N</append>
-      <split>N</split>
-      <haspartno>N</haspartno>
-      <add_date>N</add_date>
-      <add_time>N</add_time>
-      <SpecifyFormat>N</SpecifyFormat>
-      <date_time_format/>
-      <add_to_result_filenames>Y</add_to_result_filenames>
-      <pad>N</pad>
-      <fast_dump>N</fast_dump>
-      <splitevery/>
-    </file>
-    <fields>
-    </fields>
-    <attributes/>
-    <cluster_schema/>
-    <remotesteps>
-      <input>
-      </input>
-      <output>
-      </output>
-    </remotesteps>
-    <GUI>
-      <xloc>1600</xloc>
-      <yloc>176</yloc>
       <draw>Y</draw>
     </GUI>
   </step>
@@ -1464,7 +1407,64 @@
       </output>
     </remotesteps>
     <GUI>
-      <xloc>576</xloc>
+      <xloc>624</xloc>
+      <yloc>176</yloc>
+      <draw>Y</draw>
+    </GUI>
+  </step>
+  <step>
+    <name>Rejeitados lookup series</name>
+    <type>TextFileOutput</type>
+    <description/>
+    <distribute>Y</distribute>
+    <custom_distribution/>
+    <copies>1</copies>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <separator>,</separator>
+    <enclosure>"</enclosure>
+    <enclosure_forced>N</enclosure_forced>
+    <enclosure_fix_disabled>N</enclosure_fix_disabled>
+    <header>Y</header>
+    <footer>N</footer>
+    <format>DOS</format>
+    <compression>None</compression>
+    <encoding>UTF-8</encoding>
+    <endedLine/>
+    <fileNameInField>N</fileNameInField>
+    <fileNameField/>
+    <create_parent_folder>Y</create_parent_folder>
+    <file>
+      <name>${Internal.Entry.Current.Directory}/../../data/staging/rejeitados_lookup_series</name>
+      <servlet_output>N</servlet_output>
+      <do_not_open_new_file_init>N</do_not_open_new_file_init>
+      <extention>csv</extention>
+      <append>N</append>
+      <split>N</split>
+      <haspartno>N</haspartno>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <SpecifyFormat>N</SpecifyFormat>
+      <date_time_format/>
+      <add_to_result_filenames>Y</add_to_result_filenames>
+      <pad>N</pad>
+      <fast_dump>N</fast_dump>
+      <splitevery/>
+    </file>
+    <fields>
+    </fields>
+    <attributes/>
+    <cluster_schema/>
+    <remotesteps>
+      <input>
+      </input>
+      <output>
+      </output>
+    </remotesteps>
+    <GUI>
+      <xloc>1696</xloc>
       <yloc>176</yloc>
       <draw>Y</draw>
     </GUI>
@@ -1507,7 +1507,7 @@
       </output>
     </remotesteps>
     <GUI>
-      <xloc>1056</xloc>
+      <xloc>1168</xloc>
       <yloc>48</yloc>
       <draw>Y</draw>
     </GUI>
@@ -1584,11 +1584,11 @@
             <value>
               <name>constant</name>
               <type>Number</type>
-              <text>0</text>
+              <text>0.0</text>
               <length>-1</length>
               <precision>-1</precision>
               <isnull>N</isnull>
-              <mask/>
+              <mask>####0.0#########;-####0.0#########</mask>
             </value>
           </condition>
           <condition>
@@ -1600,11 +1600,11 @@
             <value>
               <name>constant</name>
               <type>Number</type>
-              <text>0</text>
+              <text>0.0</text>
               <length>-1</length>
               <precision>-1</precision>
               <isnull>N</isnull>
-              <mask/>
+              <mask>####0.0#########;-####0.0#########</mask>
             </value>
           </condition>
           <condition>
@@ -1616,11 +1616,11 @@
             <value>
               <name>constant</name>
               <type>Number</type>
-              <text>0</text>
+              <text>0.0</text>
               <length>-1</length>
               <precision>-1</precision>
               <isnull>N</isnull>
-              <mask/>
+              <mask>####0.0#########;-####0.0#########</mask>
             </value>
           </condition>
           <condition>
@@ -1667,7 +1667,7 @@
       </output>
     </remotesteps>
     <GUI>
-      <xloc>576</xloc>
+      <xloc>624</xloc>
       <yloc>48</yloc>
       <draw>Y</draw>
     </GUI>
@@ -1714,7 +1714,7 @@
       </output>
     </remotesteps>
     <GUI>
-      <xloc>1600</xloc>
+      <xloc>1696</xloc>
       <yloc>48</yloc>
       <draw>Y</draw>
     </GUI>
