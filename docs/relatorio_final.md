@@ -1,5 +1,11 @@
 # Trabalho Prático 1 — Pipeline ETL da gama BMW M
 
+**Auditoria das capturas — 21/10/2026:** o [inventário atualizado](diagramas/README.md) confronta todas as imagens com os KTR/KJB originais. As evidências essenciais estão disponíveis. Não foi executado Pentaho nesta auditoria.
+
+O envio foi confirmado pelo utilizador com password manual; ${SMTP_PASSWORD} falhou com erro 535. O job guardado tem password Mail vazia. T4/T5/T6 têm campos PostgreSQL ofuscados e não vazios, a resolver antes da entrega; nenhum valor foi reproduzido ou alterado. O job mantém um caminho absoluto local preexistente para T6. As descrições históricas de configuração externa e execuções anteriores abaixo não comprovam o estado atual dessas opções.
+
+Evidências adicionais: [T6 — pipeline](diagramas/T6_pipeline_completo.png), [variáveis no parent job](diagramas/T6_config_set_variables.png), [email recebido 28/15/13/6](diagramas/T6_email_recebido.png), [SMTP Outlook 587/TLS sem password visível](diagramas/T6_config_mail.png) e [PostgreSQL: 28 linhas, 13 contagens e rácios NULL](diagramas/T4_validacao_nulls.png).
+
 **Autor:** Gonçalo Correia, n.º 22840
 
 **Unidade curricular:** Integração de Sistemas de Informação (ISI)
@@ -36,7 +42,7 @@ A validação técnica combina inspeção dos KTR/KJB, testes locais e execuçã
 
 ## 2. Arquitetura da pipeline
 
-A arquitetura mantém cinco transformações e um job de orquestração:
+A arquitetura mantém seis transformações e um job de orquestração. O diagrama seguinte representa o núcleo de dados T1–T5; T6 e Mail estão documentados nas capturas finais:
 
 ```mermaid
 flowchart LR
@@ -69,9 +75,9 @@ Os caminhos Kettle usam `${Internal.Entry.Current.Directory}`. Esta opção redu
 
 ## 3. Desenvolvimento e decisões técnicas
 
-A descrição seguinte corresponde aos ficheiros KTR presentes neste merge. T4 usa `Insert/Update` e T2 mantém estados detalhados de validação.
+A inspeção de 21/10/2026 dos KTR originais confirma T4 com Table Output/TRUNCATE e T2 com estados OK/ERRO.
 
-**Capturas:** preservam-se as 34 imagens existentes e a [checklist de atualização](CHECKLIST_CAPTURAS.md). Algumas mostram versões anteriores. As legendas identificam essas diferenças; as imagens não são apresentadas como novas evidências da execução de 20/10/2026. As indicações históricas da checklist devem ser confrontadas com os KTR e com o [inventário revisto](diagramas/README.md).
+**Capturas:** a auditoria de 21/10/2026 substituiu o canvas e as métricas de J_main pelas versões com T6/Mail e acrescentou quatro capturas T6. As restantes imagens recentes já eram idênticas ao destino, incluindo o excerto JSON com nome normalizado. A [checklist final](CHECKLIST_CAPTURAS.md) e o [inventário revisto](diagramas/README.md) identificam as evidências atuais, as históricas e os limites dos recortes.
 
 ### 3.1. T1 — extração, limpeza e enriquecimento
 
@@ -96,7 +102,7 @@ A saída contém 28 veículos válidos.
 
 ![Pipeline Completo T1](./diagramas/T1_pipeline_completo.png)
 
-*Figura 1 — Captura existente do fluxo T1; atualizar para incluir as duas validações e os dois caminhos de rejeitados.*
+*Figura 1 — Canvas atual de T1: validação de campos e lookup, com dois caminhos de rejeitados.*
 
 ![Configuração String Operations T1](./diagramas/T1_config_string_operations.png)
 
@@ -104,7 +110,7 @@ A saída contém 28 veículos válidos.
 
 ![Configuração Validação de Peso T1](./diagramas/T1_config_filter_peso.png)
 
-*Figura 3 — Filtro antigo de peso não nulo; a configuração atual valida também positividade, potência, cilindrada e ano.*
+*Figura 3 — Recorte parcial do filtro atual: peso não nulo e positivo; potência, cilindrada e ano ficam abaixo do scroll e estão confirmados no KTR.*
 
 ![Configuração Tratar Nulos T1](./diagramas/T1_config_tratar_nulos.png)
 
@@ -124,11 +130,11 @@ A saída contém 28 veículos válidos.
 
 ![Configuração Stream Lookup T1](./diagramas/T1_config_stream_lookup.png)
 
-*Figura 8 — Lookup de série e carroçaria; a validação posterior deve constar de uma captura atualizada.*
+*Figura 8 — Lookup de série e carroçaria; a validação posterior é visível no canvas atual.*
 
 ![Métricas de Execução T1](./diagramas/T1_metricas_execucao.png)
 
-*Figura 9 — Métricas de uma execução anterior de T1; não identificam por si só a execução manual de 20/10/2026.*
+*Figura 9 — Métricas: 29 dados de entrada, 1 rejeitado, 28 válidos, 0 rejeitados de lookup e 0 erros; sem data de execução visível.*
 
 ![Preview dos Dados Finais T1](./diagramas/T1_preview_dados_finais.png)
 
@@ -138,7 +144,7 @@ A saída contém 28 veículos válidos.
 
 T2 seleciona combinações únicas de marca, prefixo de modelo e ano, constrói os URLs e executa pedidos GET no REST Client. O step `Validar resposta NHTSA` analisa `http_status` e o JSON.
 
-Uma contagem só é aceite com HTTP 2xx, JSON válido e `Count` inteiro não negativo. O KTR atual distingue `OK`, `OK_ZERO`, `ERRO_HTTP_<código>`, `JSON_INVALIDO`, `COUNT_AUSENTE`, `COUNT_INVALIDO` e ausência de estado HTTP. Respostas inválidas são registadas no log e mantêm contagem nula. Timeout e falha de transporte no REST Client fazem a transformação falhar e seguem pelo caminho de erro do job.
+Uma contagem só é aceite com HTTP 2xx, JSON válido e `Count` inteiro não negativo. O KTR original atual distingue OK e ERRO. Zero válido também recebe OK; respostas inválidas mantêm contagem nula. Não existe classificação detalhada nem logging específico de categorias nesse JavaScript. Timeout e falha de transporte no REST Client fazem a transformação falhar e seguem pelo caminho de erro do job.
 
 O CSV intermédio mantém seis campos:
 
@@ -152,7 +158,7 @@ Zero válido e ausência de informação válida têm significados diferentes. U
 
 ![Pipeline Completo T2](./diagramas/T2_pipeline_completo.png)
 
-*Figura 11 — Canvas anterior de T2; atualizar para mostrar a validação HTTP/JSON e o logging.*
+*Figura 11 — Canvas atual de T2, com validação HTTP/JSON em JavaScript e sem JSON input.*
 
 ![Configuração JavaScript URL T2](./diagramas/T2_config_javascript_url.png)
 
@@ -172,7 +178,11 @@ Zero válido e ausência de informação válida têm significados diferentes. U
 
 ![Preview dos Dados Finais T2](./diagramas/T2_preview_dados_finais.png)
 
-*Figura 16 — Preview anterior de nhtsa_recalls.csv; atualizar para mostrar estados HTTP e contagens nulas.*
+*Figura 16 — Preview de nhtsa_recalls.csv com 28 linhas, estados OK/ERRO, códigos HTTP 200/400 e contagens nulas nas respostas inválidas. Os estados OK/ERRO correspondem ao KTR original atual: 15 respostas válidas e 13 inválidas.*
+
+![Validação JavaScript da resposta NHTSA T2](./diagramas/T2_config_validar_resposta.png)
+
+*Figura 16a — Janela Validar resposta NHTSA, com validação HTTP/JSON e saídas api_error_type e nhtsa_recalls_count.*
 
 ### 3.3. T3 — consolidação e indicador exploratório
 
@@ -190,7 +200,7 @@ O rácio também fica nulo quando não existe contagem válida. O consolidado ma
 
 ![Pipeline Completo T3](./diagramas/T3_pipeline_completo.png)
 
-*Figura 17 — Canvas anterior de T3; a configuração atual preserva contagens nulas sem imputação de zero.*
+*Figura 17 — Canvas atual de T3, com preservação de contagens nulas e sem imputação de zero.*
 
 ![Configuração Merge Join T3](./diagramas/T3_config_merge_join.png)
 
@@ -206,17 +216,17 @@ O rácio também fica nulo quando não existe contagem válida. O consolidado ma
 
 ![Métricas de Execução T3](./diagramas/T3_metricas_execucao.png)
 
-*Figura 21 — Métricas de uma execução anterior de T3.*
+*Figura 21 — 28 linhas consolidadas e 0 erros; as 56 entradas no join correspondem aos dois fluxos.*
 
 ![Preview dos Dados Finais T3](./diagramas/T3_preview_dados_finais.png)
 
-*Figura 22 — Preview anterior do consolidado; confirmar os nulos na captura atualizada.*
+*Figura 22 — 28 linhas e 13 contagens NHTSA NULL; coluna do rácio fora do recorte.*
 
 ### 3.4. T4 — carga PostgreSQL
 
 O esquema de referência é `sql/01_schema.sql`. Mantém os 18 campos de negócio, `id` e `loaded_at`, com chave única `(make, model, year)`. Impõe limites ao ano, valores mecânicos positivos e valores NHTSA não negativos quando presentes. Preço e campos NHTSA admitem `NULL`; as métricas usam tipos `NUMERIC`.
 
-O KTR atual usa `Insert/Update` com a chave de marca, modelo e ano, atualizando os restantes campos. Não executa `TRUNCATE`. A reexecução não duplica as mesmas chaves, mas não elimina linhas removidas da fonte e pode deixar uma carga parcial se ocorrer uma falha. Não existe garantia de atomicidade para todo o dataset.
+O KTR original atual usa Table Output com TRUNCATE ativo, commit 1000, batch e 18 mapeamentos. Substitui o conteúdo da tabela; uma falha pode deixar a tabela vazia ou parcialmente carregada. Não existe garantia de atomicidade para todo o dataset.
 
 T4 e T5 resolvem a ligação `Postgres_Carros` através das propriedades Kettle `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER` e `PGPASSWORD`. O exemplo sem segredos está em `config/kettle.properties.example`. A configuração local é descrita no README.
 
@@ -228,7 +238,7 @@ T4 e T5 resolvem a ligação `Postgres_Carros` através das propriedades Kettle 
 
 ![Pipeline Completo T4](./diagramas/T4_pipeline_completo.png)
 
-*Figura 24 — Canvas anterior de T4; a configuração atual usa Insert/Update.*
+*Figura 24 — Canvas atual de T4: leitura CSV e Table Output.*
 
 ![Configuração CSV Input T4](./diagramas/T4_config_csv_input.png)
 
@@ -236,11 +246,19 @@ T4 e T5 resolvem a ligação `Postgres_Carros` através das propriedades Kettle 
 
 ![Métricas de Execução T4](./diagramas/T4_metricas_execucao.png)
 
-*Figura 26 — Métricas de uma carga anterior de T4.*
+*Figura 26 — Carga de 28 linhas, sem erros de execução.*
 
 ![Dados Persistidos no PostgreSQL T4](./diagramas/T4_dados_postgres.png)
 
-*Figura 27 — Consulta PostgreSQL de uma execução anterior; a confirmação manual de 28 linhas em 20/10/2026 é registada separadamente.*
+*Figura 27 — Cabeçalho PostgreSQL com 28 resultados e preço do M5 E34 NULL.*
+
+![Configuração Table Output T4](./diagramas/T4_config_table_output.png)
+
+*Figura 27a — Table Output com Truncate table ativo, correspondente ao KTR original atual.*
+
+![Mapeamentos Database fields T4](./diagramas/T4_config_database_fields.png)
+
+*Figura 27b — Separador Database fields do Table Output com 18 mapeamentos.*
 
 ### 3.5. T5 — catálogo JSON e resumo XML
 
@@ -266,19 +284,23 @@ Os outputs atuais adiam a abertura dos ficheiros até receberem a primeira linha
 
 ![Configuração GroupBy T5](./diagramas/T5_config_groupby.png)
 
-*Figura 29 — GroupBy anterior; atualizar para engine_hp_agregacao e modelos_com_resposta_nhtsa.*
+*Figura 29 — GroupBy atual: sete agregações, engine_hp_agregacao e modelos_com_resposta_nhtsa.*
 
 ![Métricas de Execução T5](./diagramas/T5_metricas_execucao.png)
 
-*Figura 30 — Métricas de uma execução anterior de T5.*
+*Figura 30 — JSON com 28 linhas e XML com 6; 56 emissões PostgreSQL representam cópia para dois ramos.*
 
 ![Preview dos Ficheiros JSON e XML T5](./diagramas/T5_preview_json.png)
 
-*Figura 31 — Preview anterior dos relatórios; atualizar para médias decimais e cobertura NHTSA.*
+*Figura 31 — Excerto apenas JSON; contagens totais comprovadas nas métricas.*
+
+![Preview XML por série T5](./diagramas/T5_preview_xml.png)
+
+*Figura 31a — XML com seis séries, médias decimais e cobertura NHTSA; extremo direito parcialmente cortado.*
 
 ### 3.6. J_main — orquestração
 
-O job executa T1, T2, T3, T4 e T5 por ordem. Cada transformação tem um hop de falha para `Abortar por Erro`. O mecanismo controla a sequência e interrompe o caminho normal perante falha; não cria uma transação distribuída entre API, ficheiros e PostgreSQL.
+O job executa T1–T6 por ordem, seguido de Mail e Sucesso ETL. Cada transformação tem um hop de falha para Abortar por Erro; Mail não tem esse hop no job atual. O mecanismo controla a sequência e interrompe o caminho normal perante falha; não cria uma transação distribuída entre API, ficheiros e PostgreSQL.
 
 O autor confirmou uma execução manual completa no Pentaho em 20/10/2026, com `result=true` nas cinco transformações. Não foi fornecida uma duração confirmada para essa execução.
 
@@ -286,7 +308,7 @@ O autor confirmou uma execução manual completa no Pentaho em 20/10/2026, com `
 
 ![Pipeline Completo J_main](./diagramas/J_main_pipeline_completo.png)
 
-*Figura 32 — Job J_main com execução sequencial e hops de erro.*
+*Figura 32 — Job final T1–T6, Mail, Sucesso ETL e seis hops de erro das transformações.*
 
 ![Configuração de Entrada de Transformação J_main](./diagramas/J_main_config_trans.png)
 
@@ -294,7 +316,7 @@ O autor confirmou uma execução manual completa no Pentaho em 20/10/2026, com `
 
 ![Métricas de Execução J_main](./diagramas/J_main_metricas_execucao.png)
 
-*Figura 34 — Painel de execução anterior de J_main; não é apresentado como nova captura de 20/10/2026.*
+*Figura 34 — Execução em 21/10/2026: sucesso de T1–T6, Mail, Sucesso ETL e J_main. Hora completa truncada.*
 
 ## 4. Resultados, validação e limitações
 
@@ -349,7 +371,7 @@ Na revisão, Pan devolveu código de processo 0 mesmo com erro de ligação no l
 - Ausência de controlo por parque circulante, produção, quilometragem, gravidade ou tempo de exposição.
 - `recalls_por_100hp` exploratório, sem validação como medida científica de fiabilidade mecânica.
 - Carga e exportações sem garantia transacional global.
-- Capturas anteriores às correções, a atualizar segundo a checklist e os KTR atuais.
+- Algumas capturas históricas/parciais foram preservadas e identificadas; as evidências essenciais atuais estão disponíveis segundo o inventário.
 - Vídeo, publicação e QR Code ainda pendentes.
 
 ## 5. Demonstração em vídeo e QR Code
@@ -364,7 +386,7 @@ Após a gravação, publicar o vídeo, testar o acesso numa janela privada e só
 
 A execução manual confirmada demonstra o funcionamento integrado de T1 a T5: limpeza, quarentena, integração REST, consolidação, carga de 28 registos e exportações de 28 veículos JSON e seis séries XML. Os nulos e as médias decimais fazem parte das regras de qualidade descritas.
 
-A análise é técnica e exploratória. Não prova uma relação entre potência e avarias nem uma classificação de fiabilidade das séries. Para concluir a entrega académica, falta atualizar as capturas afetadas, gravar e publicar o vídeo, criar o QR Code real e atualizar o PDF.
+A análise é técnica e exploratória. Não prova uma relação entre potência e avarias nem uma classificação de fiabilidade das séries. As capturas essenciais já foram auditadas e sincronizadas. Para concluir a entrega académica, falta resolver as ressalvas de segurança/portabilidade, rever o relatório, gravar e publicar o vídeo, criar o QR Code real e atualizar o PDF.
 
 Como trabalhos futuros propõem-se documentar fontes primárias por especificação, registar data e URL de cada consulta, estudar campanhas individualmente e testar uma carga transacional numa base descartável. Comparações entre marcas ou preços de outros mercados só deverão avançar com fontes documentadas.
 

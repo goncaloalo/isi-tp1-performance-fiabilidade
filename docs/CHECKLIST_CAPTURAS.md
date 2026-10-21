@@ -1,10 +1,30 @@
 # Inventário e Checklist de Atualização das Capturas de Ecrã
 
-Este documento analisa as **34 capturas de ecrã** presentes em `docs/diagramas/`, documenta a sua correspondência com o relatório técnico e identifica as capturas que necessitam de atualização ou atenção antes da entrega final.
+## Checklist final — 21/10/2026
+
+O [inventário revisto](diagramas/README.md) classifica as imagens após inspeção visual de todos os 45 conteúdos distintos nas duas pastas. Total inicial: 63 PNG, dos quais 18 duplicados exatos. Total final em diagramas: 43 PNG. Screenshots tem prioridade; originais preservados.
+
+- [x] T1: [canvas final](diagramas/T1_pipeline_completo.png) e [métricas](diagramas/T1_metricas_execucao.png): 29 dados de entrada, 1 rejeitado, 28 válidos, dois caminhos de rejeitados.
+- [x] T2: [validação atual](diagramas/T2_config_validar_resposta.png) e [preview](diagramas/T2_preview_dados_finais.png): 15 OK, 13 ERRO e NULL.
+- [x] T3: [canvas sem imputação de zero](diagramas/T3_pipeline_completo.png), [28 linhas](diagramas/T3_metricas_execucao.png) e [nulos](diagramas/T3_preview_dados_finais.png).
+- [x] T4: [Table Output/TRUNCATE](diagramas/T4_config_table_output.png), [18 mapeamentos](diagramas/T4_config_database_fields.png), [28 resultados](diagramas/T4_dados_postgres.png) e [13 contagens/rácios NULL](diagramas/T4_validacao_nulls.png).
+- [x] T5: [GroupBy atual](diagramas/T5_config_groupby.png), [JSON 28/XML 6](diagramas/T5_metricas_execucao.png), [JSON](diagramas/T5_preview_json.png) e [XML](diagramas/T5_preview_xml.png).
+- [x] T6: [canvas](diagramas/T6_pipeline_completo.png), [quatro variáveis no parent job](diagramas/T6_config_set_variables.png) e [email 28/15/13/6](diagramas/T6_email_recebido.png).
+- [x] [Job T1–T6 e Mail](diagramas/J_main_pipeline_completo.png) e [execução com Mail bem-sucedido](diagramas/J_main_metricas_execucao.png), ambos substituídos pelas capturas finais.
+- [x] Opcional disponível: [SMTP Outlook 587/TLS sem password](diagramas/T6_config_mail.png). Não é necessário repetir.
+- [x] Nenhuma imagem antiga mantida em preferência a uma equivalente recente e tecnicamente correta.
+
+JSON input T2 e DDL T4 são obsoletos; Select Values T3 é parcial. Filtro T1 com scroll e recortes T3/XML têm limites documentados no inventário, complementados por KTR, canvas e métricas. Não faltam novas capturas opcionais para iniciar a revisão final.
+
+Pendências: passwords PostgreSQL ofuscadas guardadas em T4/T5/T6; caminho absoluto preexistente para T6; ausência de hop de falha de Mail; revisão final do relatório/vídeo e posterior URL, QR Code e PDF. Não foram alterados ficheiros técnicos ou credenciais. Mail com password manual validado pelo utilizador; ${SMTP_PASSWORD} falhou com 535 e não está validado.
+
+Esta auditoria não executou Pentaho nem enviou email. A lista seguinte fica preservada como histórico, sem exigir capturas opcionais já suficientes.
+
+Esta checklist histórica analisava 34 capturas de ecrã. A organização de 20/10/2026 substituiu o preview T2 e acrescentou quatro capturas. Para a lista atual, consultar o [inventário de diagramas](diagramas/README.md). As contagens e os estados nas tabelas seguintes pertencem à revisão original.
 
 ---
 
-## 1. Estado Global das Capturas
+## 1. Estado histórico das capturas — não usar como checklist final
 
 | Módulo | Ficheiro do Pipeline | Capturas Existentes | Estado Atual na Master | Necessidade de Atualização Imediata |
 | :--- | :--- | :---: | :---: | :---: |
@@ -20,7 +40,7 @@ Este documento analisa as **34 capturas de ecrã** presentes em `docs/diagramas/
 
 ## 2. Identificação das Capturas a Atualizar
 
-As capturas em `docs/diagramas/` refletem fielmente a versão estável e validada da `master`. Contudo, foram identificadas situações específicas que exigem atualização ou atenção futura:
+A análise histórica seguinte antecede a auditoria de 21/10/2026. As afirmações de cobertura integral e os pedidos condicionais não constituem o estado atual; consultar a checklist final acima.
 
 ### Cenário A: Se as simplificações de código do Codex forem integradas
 Caso as alterações experimentais em curso noutra branch venham a ser adotadas no futuro, as seguintes capturas terão de ser renovadas no Pentaho Spoon:
@@ -41,7 +61,7 @@ Para enriquecer a entrega académica e o relatório, devem ser preparadas as seg
    - *Ficheiro sugerido:* `docs/diagramas/qrcode_video_demonstracao.png`.
    - *Ação:* Após gravar o vídeo de 3 a 5 minutos e publicá-lo (no e-learning ou YouTube não listado), gerar o QR Code correspondente e inseri-lo na Secção 5 do `docs/relatorio_final.md`.
 2. **Configuração Explícita do Table Output em T4 (`T4_config_table_output.png`):**
-   - *Situação:* Existe em `prints/T4_config_table_output.png`, mas a pasta `docs/diagramas/` utiliza atualmente 5 capturas para a T4 (que cobrem o DDL, o CSV de entrada, o pipeline, as métricas e os dados na base de dados). Caso se pretenda ilustrar a opção *Truncate table*, pode ser copiada diretamente de `prints/`.
+   - *Atualização de 20/10/2026:* [Table Output com Truncate table](diagramas/T4_config_table_output.png) e [18 mapeamentos Database fields](diagramas/T4_config_database_fields.png) copiados de Screenshots. As imagens documentam a configuração capturada no Spoon.
 
 ---
 
@@ -100,3 +120,11 @@ Para enriquecer a entrega académica e o relatório, devem ser preparadas as seg
 1. Abrir o Pentaho Spoon e ter o Job `J_main.kjb` aberto com zoom a 100%.
 2. Caso o docente peça para demonstrar a execução ao vivo, assegurar que a base de dados PostgreSQL está ativa no porto 5432 e que a máquina tem ligação à Internet (para a chamada da NHTSA em T2).
 3. Ter o terminal aberto para demonstrar a execução alternativa sem interface gráfica via `Kitchen.bat`.
+
+## Capturas organizadas em 20/10/2026
+
+- [Validar resposta NHTSA](diagramas/T2_config_validar_resposta.png): janela JavaScript.
+- [Preview T2 substituído](diagramas/T2_preview_dados_finais.png): 28 linhas, estados OK/ERRO e códigos HTTP; não mostra ERRO_HTTP_400 como estado.
+- [Preview XML T5](diagramas/T5_preview_xml.png): inclui séries M2/M3/M4, médias decimais e cobertura NHTSA.
+
+Os originais em Screenshots foram preservados. Estas capturas não validam automaticamente todas as afirmações históricas desta checklist.

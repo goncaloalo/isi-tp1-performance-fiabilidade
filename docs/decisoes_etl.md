@@ -1,5 +1,7 @@
 # Decisões técnicas da pipeline ETL
 
+**Nota de auditoria — 21/10/2026:** este texto preserva decisões de uma revisão anterior. O [inventário final](diagramas/README.md) confronta as capturas com os ficheiros originais atuais: T2 usa OK/ERRO, T4 usa Table Output com TRUNCATE e o job inclui T6/Mail. Não assumir que as descrições históricas de Insert/Update, ligação por variáveis ou pendência de execução representam o estado atual. As evidências essenciais estão disponíveis; persistem as ressalvas de segurança e portabilidade descritas no inventário. Não foi executado Pentaho nesta auditoria.
+
 Este documento regista as decisões que correspondem à implementação versionada após a revisão final. As capturas existentes podem anteceder algumas correções; em caso de divergência, os ficheiros `.ktr`, `.kjb`, o DDL e os testes são a referência técnica.
 
 ## 1. Princípios

@@ -1,5 +1,7 @@
 # Guião do vídeo demonstrativo — 3 a 5 minutos
 
+**Atualização das evidências — 21/10/2026:** usar as [capturas finais](diagramas/README.md), incluindo J_main com Mail bem-sucedido e email 28/15/13/6. A auditoria não executou Pentaho. No vídeo, declarar que o envio foi confirmado com password manual; ${SMTP_PASSWORD} falhou com 535. Não mostrar credenciais nem guardar a password introduzida. Rever as pendências de segurança/portabilidade antes de gravar uma nova execução.
+
 **Autor:** Gonçalo Correia, n.º 22840 — ISI, LESI, IPCA / EST, 2026/2027
 
 **Duração prevista:** 4 minutos e 40 segundos
@@ -12,8 +14,8 @@ Em 20/10/2026, o autor confirmou a execução manual de `J_main`: T1 a T5 com `r
 
 ## 1. Preparação
 
-1. Abrir Spoon com T1 a T5 e `J_main.kjb`, pgAdmin/psql e o repositório.
-2. Confirmar a ligação `Postgres_Carros`. Os KTR atuais usam propriedades Kettle; não mostrar passwords.
+1. Abrir Spoon com T1 a T6 e `J_main.kjb`, pgAdmin/psql e o repositório.
+2. Confirmar a ligação `Postgres_Carros`. As ligações atuais têm passwords ofuscadas guardadas, a resolver antes da entrega; não mostrar passwords.
 3. Usar uma base nova ou salvaguardada e confirmar o esquema de `sql/01_schema.sql`.
 4. Rever [CHECKLIST_CAPTURAS.md](CHECKLIST_CAPTURAS.md) e [CHECKLIST_DEMONSTRACAO.md](CHECKLIST_DEMONSTRACAO.md). Confrontar indicações históricas com os KTR atuais.
 5. Preparar os CSV, JSON e XML para apresentação e executar os testes locais.
@@ -47,7 +49,7 @@ Mostrar `rejeitados_specs.csv`, sem inventar o peso em falta. Não afirmar que f
 
 **Dizer:** “O pedido GET envia make, model e modelYear. Um M3 E46 CSL de 2003 é consultado como BMW M3 de 2003. Validamos HTTP 2xx, JSON e Count inteiro não negativo. Zero válido fica zero; resposta inválida mantém NULL. O CSV guarda também o estado HTTP e o estado da consulta.”
 
-No KTR atual, mostrar `OK`, `OK_ZERO` e categorias de erro. Explicar que timeout ou falha de transporte fazem T2 falhar.
+No KTR original atual, mostrar OK e ERRO: zero válido também recebe OK; erro mantém NULL. Explicar que timeout ou falha de transporte fazem T2 falhar.
 
 ### 2:05–2:30 — T3 e consolidação
 
@@ -57,9 +59,9 @@ No KTR atual, mostrar `OK`, `OK_ZERO` e categorias de erro. Explicar que timeout
 
 ### 2:30–3:00 — T4 e PostgreSQL
 
-**Mostrar:** `Insert/Update`, atualmente presente em T4, e pgAdmin/psql.
+**Mostrar:** Table Output com TRUNCATE, atualmente presente em T4, e pgAdmin/psql.
 
-**Dizer:** “A carga usa a chave marca, modelo e ano. A reexecução atualiza linhas existentes, mas não é uma transação atómica global e não elimina linhas removidas da fonte. O preço do M5 E34 permanece NULL.”
+**Dizer:** “A carga usa Table Output com TRUNCATE e 18 mapeamentos. Substitui o conteúdo da tabela e não garante uma transação atómica global. O preço do M5 E34 permanece NULL.”
 
 Executar as consultas:
 
@@ -82,7 +84,7 @@ Destacar as médias 422.50, 395.00, 487.75, 503.75, 533.50 e 600.00 hp. Não int
 
 ### 3:25–4:10 — J_main e validação
 
-**Mostrar:** sequência T1 a T5 e hops de erro para `Abortar por Erro`.
+**Mostrar:** sequência T1–T6, Mail, Sucesso ETL e hops de erro das transformações. Mostrar Set variables e email 28/15/13/6; Mail não tem hop de falha explícito.
 
 **Dizer:** “O job executa as transformações em sequência e desvia falhas para Abortar por Erro. Em 20 de outubro de 2026, confirmei manualmente result=true nas cinco transformações, 28 registos na tabela, 28 veículos em JSON e seis séries em XML.”
 

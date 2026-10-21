@@ -1,11 +1,13 @@
 # Checklist da demonstração
 
+**Auditoria das capturas — 21/10/2026:** [evidências essenciais disponíveis](diagramas/README.md). Não foi executado Pentaho nesta auditoria. O envio foi confirmado pelo utilizador com password manual; ${SMTP_PASSWORD} falhou com 535. Rever passwords guardadas, caminho absoluto preexistente de T6 e ausência de hop de falha de Mail antes de fechar a entrega.
+
 ## Antes de gravar
 
 - [ ] PostgreSQL instalado e acessível.
 - [ ] Base `carros_etl` nova ou salvaguardada.
 - [ ] `sql/01_schema.sql` executado sem erros.
-- [ ] Variáveis PostgreSQL configuradas apenas localmente.
+- [ ] Resolver passwords PostgreSQL ofuscadas já guardadas em T4/T5/T6 e confirmar configuração local sem expor segredos.
 - [ ] Ligação `Postgres_Carros` testada no Spoon.
 - [ ] Acesso a `https://api.nhtsa.gov` confirmado.
 - [ ] T1 executada: 29 lidos, 1 rejeitado, 28 válidos.
@@ -17,7 +19,7 @@
 - [ ] Médias XML confirmadas com duas casas decimais.
 - [ ] `python -m unittest discover -s tests -v` sem falhas.
 - [ ] Nenhuma password visível no ecrã ou nos logs.
-- [ ] Capturas finais atualizadas.
+- [x] Capturas finais auditadas e sincronizadas em 21/10/2026; ver inventário.
 
 ## Durante a gravação
 
@@ -30,10 +32,10 @@
 - [ ] Explicar a granularidade genérica da consulta NHTSA.
 - [ ] Mostrar a distinção entre zero válido e erro HTTP.
 - [ ] Mostrar o `LEFT OUTER JOIN` e a preservação de nulos.
-- [ ] Mostrar a carga `Insert/Update` em PostgreSQL.
+- [ ] Mostrar a carga Table Output com TRUNCATE e 18 mapeamentos em PostgreSQL.
 - [ ] Mostrar JSON e XML.
 - [ ] Mostrar a correção da média de potência.
-- [ ] Executar `J_main` e mostrar o resultado real.
+- [ ] Mostrar J_main com T1–T6 e Mail bem-sucedido, variáveis no parent job e email 28/15/13/6. Se executar novamente, usar ambiente preparado e preservar credenciais.
 - [ ] Mostrar os testes automáticos.
 - [ ] Referir limitações e trabalhos futuros.
 
