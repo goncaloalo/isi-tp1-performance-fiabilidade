@@ -11,9 +11,9 @@
   <modified_user>-</modified_user>
   <modified_date>2026/10/15 19:00:00.000</modified_date>
   <parameters>
-  </parameters>
+    </parameters>
   <slaveservers>
-  </slaveservers>
+    </slaveservers>
   <job-log-table>
     <connection/>
     <schema/>
@@ -153,7 +153,7 @@
       <name>TRANSNAME</name>
     </field>
     <field>
-      <id>STEPNAME</id>
+      <id>JOBENTRYNAME</id>
       <enabled>Y</enabled>
       <name>STEPNAME</name>
     </field>
@@ -512,8 +512,8 @@
       <parallel>N</parallel>
       <draw>Y</draw>
       <nr>0</nr>
-      <xloc>1220</xloc>
-      <yloc>200</yloc>
+      <xloc>1488</xloc>
+      <yloc>192</yloc>
       <attributes_kjc/>
     </entry>
     <entry>
@@ -527,6 +527,107 @@
       <nr>0</nr>
       <xloc>640</xloc>
       <yloc>380</yloc>
+      <attributes_kjc/>
+    </entry>
+    <entry>
+      <name>T6 - Preparar Resumo Email</name>
+      <description/>
+      <type>TRANS</type>
+      <attributes/>
+      <specification_method>filename</specification_method>
+      <trans_object_id/>
+      <filename>C:\Users\gfcco\OneDrive\Documentos\isi-tp1-performance-fiabilidade\kettle\transformations\T6_preparar_email.ktr</filename>
+      <transname/>
+      <arg_from_previous>N</arg_from_previous>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <clear_rows>N</clear_rows>
+      <clear_files>N</clear_files>
+      <set_logfile>N</set_logfile>
+      <logfile/>
+      <logext/>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <loglevel>Basic</loglevel>
+      <cluster>N</cluster>
+      <slave_server_name/>
+      <set_append_logfile>N</set_append_logfile>
+      <wait_until_finished>Y</wait_until_finished>
+      <follow_abort_remote>N</follow_abort_remote>
+      <create_parent_folder>N</create_parent_folder>
+      <logging_remote_work>N</logging_remote_work>
+      <run_configuration>Pentaho local</run_configuration>
+      <suppress_result_data>N</suppress_result_data>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+      </parameters>
+      <parallel>N</parallel>
+      <draw>Y</draw>
+      <nr>0</nr>
+      <xloc>1232</xloc>
+      <yloc>192</yloc>
+      <attributes_kjc/>
+    </entry>
+    <entry>
+      <name>Mail</name>
+      <description/>
+      <type>MAIL</type>
+      <attributes/>
+      <server>smtp.office365.com</server>
+      <port>587</port>
+      <destination>a22840@alunos.ipca.pt</destination>
+      <destinationCc/>
+      <destinationBCc/>
+      <replyto>a22840@alunos.ipca.pt</replyto>
+      <replytoname>BMW M ETL</replytoname>
+      <subject>Relatório ETL - BMW M Performance e Fiabilidade</subject>
+      <include_date>N</include_date>
+      <contact_person/>
+      <contact_phone/>
+      <comment>RELATÓRIO AUTOMÁTICO - BMW M PERFORMANCE E FIABILIDADE
+
+Execução do ETL concluída com sucesso.
+
+RESUMO
+Veículos processados: ${ETL_TOTAL_VEICULOS}
+Séries BMW M analisadas: ${ETL_TOTAL_SERIES}
+
+CONSULTAS NHTSA
+Respostas válidas: ${ETL_NHTSA_OK}
+Respostas sem dados válidos: ${ETL_NHTSA_SEM_DADOS}
+
+As respostas NHTSA sem dados válidos foram preservadas como NULL, não como zero recalls.
+
+RESULTADOS GERADOS
+- Tabela PostgreSQL atualizada.
+- Catálogo JSON exportado.
+- Resumo XML por série exportado.
+
+Projeto ISI TP1 - Pentaho Data Integration.</comment>
+      <include_files>N</include_files>
+      <zip_files>N</zip_files>
+      <zip_name/>
+      <use_auth>Y</use_auth>
+      <use_secure_auth>Y</use_secure_auth>
+      <auth_user>a22840@alunos.ipca.pt</auth_user>
+      <auth_password>Encrypted </auth_password>
+      <only_comment>Y</only_comment>
+      <use_HTML>N</use_HTML>
+      <use_Priority>N</use_Priority>
+      <encoding>UTF-8</encoding>
+      <priority>normal</priority>
+      <importance>normal</importance>
+      <sensitivity>normal</sensitivity>
+      <secureconnectiontype>TLS</secureconnectiontype>
+      <replyToAddresses/>
+      <filetypes>      </filetypes>
+      <embeddedimages>
+      </embeddedimages>
+      <parallel>N</parallel>
+      <draw>Y</draw>
+      <nr>0</nr>
+      <xloc>1376</xloc>
+      <yloc>192</yloc>
       <attributes_kjc/>
     </entry>
   </entries>
@@ -577,15 +678,6 @@
       <unconditional>N</unconditional>
     </hop>
     <hop>
-      <from>T5 - Exportação JSON e XML</from>
-      <to>Sucesso ETL</to>
-      <from_nr>0</from_nr>
-      <to_nr>0</to_nr>
-      <enabled>Y</enabled>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-    </hop>
-    <hop>
       <from>T1 - Especificações</from>
       <to>Abortar por Erro</to>
       <from_nr>0</from_nr>
@@ -630,16 +722,52 @@
       <evaluation>N</evaluation>
       <unconditional>N</unconditional>
     </hop>
+    <hop>
+      <from>T5 - Exportação JSON e XML</from>
+      <to>T6 - Preparar Resumo Email</to>
+      <from_nr>0</from_nr>
+      <to_nr>0</to_nr>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+    </hop>
+    <hop>
+      <from>T6 - Preparar Resumo Email</from>
+      <to>Abortar por Erro</to>
+      <from_nr>0</from_nr>
+      <to_nr>0</to_nr>
+      <enabled>Y</enabled>
+      <evaluation>N</evaluation>
+      <unconditional>N</unconditional>
+    </hop>
+    <hop>
+      <from>T6 - Preparar Resumo Email</from>
+      <to>Mail</to>
+      <from_nr>0</from_nr>
+      <to_nr>0</to_nr>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+    </hop>
+    <hop>
+      <from>Mail</from>
+      <to>Sucesso ETL</to>
+      <from_nr>0</from_nr>
+      <to_nr>0</to_nr>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+    </hop>
   </hops>
   <notepads>
     <notepad>
       <note>PIPELINE ETL GLOBAL — BMW M PERFORMANCE &amp; FIABILIDADE
-Fluxo sequencial orquestrado: T1 (Specs) -&gt; T2 (NHTSA) -&gt; T3 (Consolidação) -&gt; T4 (PostgreSQL) -&gt; T5 (JSON/XML)
+Fluxo sequencial orquestrado: T1 (Specs) -> T2 (NHTSA) -> T3 (Consolidação) -> T4 (PostgreSQL) -> T5 (JSON/XML)
 Em caso de falha em qualquer transformação, o fluxo é interrompido via 'Abortar por Erro'.</note>
       <xloc>80</xloc>
       <yloc>80</yloc>
-      <width>680</width>
-      <heigth>50</heigth>
+      <width>778</width>
+      <heigth>70</heigth>
       <fontname>Segoe UI</fontname>
       <fontsize>9</fontsize>
       <fontbold>N</fontbold>
