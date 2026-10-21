@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Dashboard local do projeto ISI TP1: catálogo BMW M, desempenho e cobertura dos dados NHTSA.">
+  <title>BMW M · Performance e Fiabilidade</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="masthead">
+    <div class="brand"><span class="m-stripes" aria-hidden="true"><i></i><i></i><i></i></span><span>BMW <b>M</b> <span class="brand-detail">/ DATA EXPLORER</span></span></div>
+    <span class="project-tag">ISI · TP1 <span aria-hidden="true">/</span> PROJETO ACADÉMICO</span>
+  </header>
+  <main>
+    <section class="intro" aria-labelledby="page-title">
+      <div><p class="eyebrow">CATÁLOGO INTEGRADO · CSV + NHTSA</p><h1 id="page-title">Performance e Fiabilidade<span class="accent">.</span></h1><p class="subtitle">Explorar a gama BMW M e perceber a cobertura dos dados de segurança.</p></div>
+      <button id="reload" type="button">Atualizar dados <span aria-hidden="true">↻</span></button>
+    </section>
+    <p id="status" class="status" role="status" aria-live="polite">A carregar o catálogo local…</p>
+    <noscript><p class="error">Ative o JavaScript no navegador para consultar os dados.</p></noscript>
+    <div id="content" hidden>
+      <section class="metrics" aria-label="Indicadores globais do catálogo">
+        <article class="metric"><span>Veículos no catálogo</span><strong id="total">—</strong><small id="years">—</small></article>
+        <article class="metric"><span>Séries representadas</span><strong id="series-count">—</strong><small>Grupos distintos no catálogo</small></article>
+        <article class="metric valid"><span>Com resposta NHTSA</span><strong id="valid-count">—</strong><small>Contagem válida exportada pelo ETL</small></article>
+        <article class="metric unknown"><span>Sem dados NHTSA</span><strong id="unknown-count">—</strong><small>NULL · contagem desconhecida</small></article>
+      </section>
+      <section class="charts" aria-label="Gráficos globais do catálogo">
+        <article class="panel">
+          <div class="panel-heading"><div><p class="eyebrow">01 / DISTRIBUIÇÃO</p><h2>Veículos por série</h2></div><span class="unit">N.º de veículos</span></div>
+          <div id="series-chart" class="bar-chart" role="list" aria-label="Contagem de veículos por série"></div>
+        </article>
+        <article class="panel">
+          <div class="panel-heading"><div><p class="eyebrow">02 / DISPONIBILIDADE</p><h2>Cobertura NHTSA</h2></div><span class="unit">Catálogo completo</span></div>
+          <div class="coverage-layout">
+            <div class="ring-wrap">
+              <svg id="coverage-chart" viewBox="0 0 160 160" role="img" aria-label="Cobertura NHTSA">
+                <circle class="ring-track" cx="80" cy="80" r="62" />
+                <circle id="coverage-ring" class="ring-value" cx="80" cy="80" r="62" pathLength="100" transform="rotate(-90 80 80)" />
+              </svg>
+              <div class="ring-label" aria-hidden="true"><strong id="coverage-percent">—</strong><span>com resposta</span></div>
+            </div>
+            <div class="coverage-legend"><p><span class="dot blue"></span>Com resposta <strong id="legend-valid">—</strong></p><p><span class="dot grey"></span>Sem dados <strong id="legend-unknown">—</strong></p><p class="chart-note">Disponibilidade de dados.<br>Não mede a fiabilidade dos veículos.</p></div>
+          </div>
+        </article>
+      </section>
+      <section class="panel catalogue" aria-labelledby="catalogue-title">
+        <div class="table-heading"><div><p class="eyebrow">03 / EXPLORAR</p><h2 id="catalogue-title">Catálogo de veículos</h2></div><p id="row-count" class="unit" role="status" aria-live="polite"></p></div>
+        <div class="filters">
+          <label>Série<select id="series-filter"><option value="">Todas as séries</option></select></label>
+          <label class="search-label">Pesquisar modelo, versão ou ano<input id="search" type="search" placeholder="Ex.: M3, Competition, 2021" autocomplete="off"></label>
+          <button id="clear" class="secondary" type="button">Limpar filtros</button>
+        </div>
+        <p class="filter-note">Os filtros afetam apenas a tabela. Os indicadores e gráficos mostram o catálogo completo.</p>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Tabela de veículos; deslocamento horizontal em ecrãs pequenos">
+          <table>
+            <caption class="sr-only">Especificações do catálogo e disponibilidade de resposta NHTSA por veículo</caption>
+            <thead><tr><th scope="col">Modelo / versão</th><th scope="col">Série</th><th scope="col">Ano</th><th scope="col" class="numeric">Potência <span>hp</span></th><th scope="col" class="numeric">Peso <span>kg</span></th><th scope="col" class="numeric">Potência/peso <span>hp/t</span></th><th scope="col" class="numeric">0–60 mph <span>s</span></th><th scope="col">Dados NHTSA</th></tr></thead>
+            <tbody id="vehicles"></tbody>
+          </table>
+        </div>
+        <p id="empty" class="empty" hidden>Nenhum veículo corresponde aos filtros.</p>
+      </section>
+      <aside class="source-note" aria-label="Fontes e limitações"><strong>Como interpretar estes dados</strong><p>Fonte: <a href="../data/output/bmw_m_catalogo_completo.json">catálogo JSON</a> exportado pelo ETL; <a href="../data/output/bmw_m_resumo_series.xml">resumo por série em XML</a> disponível para consulta. As especificações locais não foram verificadas oficialmente pela BMW.</p><p>A NHTSA cobre campanhas de segurança dos EUA. A consulta por modelo genérico e ano não confirma a aplicação a uma variante ou VIN. «Sem dados» significa NULL/desconhecido, nunca zero recalls. Uma contagem válida de zero significa resposta sem campanhas, não ausência de avarias. Não é calculada uma taxa de fiabilidade.</p></aside>
+    </div>
+    <footer><span>BMW M · Performance e Fiabilidade</span><span>ISI TP1 · Visualização local dos resultados ETL</span></footer>
+  </main>
+</body>
+</html>

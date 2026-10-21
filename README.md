@@ -99,6 +99,10 @@ As médias de potência por série são 422.50, 395.00, 487.75, 503.75, 533.50 e
 - Capturas antigas podem mostrar configurações anteriores. A checklist deve ser confrontada com os KTR atuais.
 - Vídeo, URL publicado e QR Code continuam por produzir. O PDF intermédio foi removido; o PDF final ainda não foi criado.
 
+## Dashboard local
+
+Visualização dos resultados ETL, sem dependências nem internet: [instruções de arranque e utilização](dashboard/README.md). Na raiz do repositório, execute `python -m http.server 8000 --bind 127.0.0.1` e abra [a dashboard local](http://localhost:8000/dashboard/).
+
 ## 7. Documentação
 
 - [Relatório técnico](docs/relatorio_final.md)
