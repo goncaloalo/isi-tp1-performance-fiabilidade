@@ -1,63 +1,9 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <relatorio_series_bmw_m>
-  <serie_analise>
-    <series>Série 2 M</series>
-    <total_modelos>4</total_modelos>
-    <modelos_com_resposta_nhtsa>4</modelos_com_resposta_nhtsa>
-    <media_hp>422.50</media_hp>
-    <media_hp_ton>270.65</media_hp_ton>
-    <media_hp_litro>141.64</media_hp_litro>
-    <total_recalls_serie>5</total_recalls_serie>
-    <media_recalls_100hp>0.2925</media_recalls_100hp>
-  </serie_analise>
-  <serie_analise>
-    <series>Série 3 M</series>
-    <total_modelos>9</total_modelos>
-    <modelos_com_resposta_nhtsa>6</modelos_com_resposta_nhtsa>
-    <media_hp>395.00</media_hp>
-    <media_hp_ton>253.75</media_hp_ton>
-    <media_hp_litro>127.63</media_hp_litro>
-    <total_recalls_serie>22</total_recalls_serie>
-    <media_recalls_100hp>0.97</media_recalls_100hp>
-  </serie_analise>
-  <serie_analise>
-    <series>Série 4 M</series>
-    <total_modelos>4</total_modelos>
-    <modelos_com_resposta_nhtsa>3</modelos_com_resposta_nhtsa>
-    <media_hp>487.75</media_hp>
-    <media_hp_ton>303.29</media_hp_ton>
-    <media_hp_litro>163.31</media_hp_litro>
-    <total_recalls_serie>7</total_recalls_serie>
-    <media_recalls_100hp>0.5</media_recalls_100hp>
-  </serie_analise>
-  <serie_analise>
-    <series>Série 5 M</series>
-    <total_modelos>8</total_modelos>
-    <modelos_com_resposta_nhtsa>1</modelos_com_resposta_nhtsa>
-    <media_hp>503.75</media_hp>
-    <media_hp_ton>271.22</media_hp_ton>
-    <media_hp_litro>116.02</media_hp_litro>
-    <total_recalls_serie>1</total_recalls_serie>
-    <media_recalls_100hp>0.16</media_recalls_100hp>
-  </serie_analise>
-  <serie_analise>
-    <series>Série 6 M</series>
-    <total_modelos>2</total_modelos>
-    <modelos_com_resposta_nhtsa>0</modelos_com_resposta_nhtsa>
-    <media_hp>533.50</media_hp>
-    <media_hp_ton>299.6</media_hp_ton>
-    <media_hp_litro>114.42</media_hp_litro>
-    <total_recalls_serie />
-    <media_recalls_100hp />
-  </serie_analise>
-  <serie_analise>
-    <series>Série 8 M</series>
-    <total_modelos>1</total_modelos>
-    <modelos_com_resposta_nhtsa>1</modelos_com_resposta_nhtsa>
-    <media_hp>600.00</media_hp>
-    <media_hp_ton>318.3</media_hp_ton>
-    <media_hp_litro>136.52</media_hp_litro>
-    <total_recalls_serie>1</total_recalls_serie>
-    <media_recalls_100hp>0.17</media_recalls_100hp>
-  </serie_analise>
+<serie_analise><series>Série 2 M</series> <total_modelos>4</total_modelos> <modelos_com_resposta_nhtsa>4</modelos_com_resposta_nhtsa> <media_hp>422.50</media_hp> <media_hp_ton>270.65</media_hp_ton> <media_hp_litro>141.64</media_hp_litro> <total_recalls_serie>5</total_recalls_serie> <media_recalls_100hp>0.2925</media_recalls_100hp></serie_analise>
+<serie_analise><series>Série 3 M</series> <total_modelos>9</total_modelos> <modelos_com_resposta_nhtsa>6</modelos_com_resposta_nhtsa> <media_hp>395.00</media_hp> <media_hp_ton>253.75</media_hp_ton> <media_hp_litro>127.63</media_hp_litro> <total_recalls_serie>22</total_recalls_serie> <media_recalls_100hp>0.97</media_recalls_100hp></serie_analise>
+<serie_analise><series>Série 4 M</series> <total_modelos>4</total_modelos> <modelos_com_resposta_nhtsa>3</modelos_com_resposta_nhtsa> <media_hp>487.75</media_hp> <media_hp_ton>303.29</media_hp_ton> <media_hp_litro>163.31</media_hp_litro> <total_recalls_serie>7</total_recalls_serie> <media_recalls_100hp>0.5</media_recalls_100hp></serie_analise>
+<serie_analise><series>Série 5 M</series> <total_modelos>8</total_modelos> <modelos_com_resposta_nhtsa>1</modelos_com_resposta_nhtsa> <media_hp>503.75</media_hp> <media_hp_ton>271.22</media_hp_ton> <media_hp_litro>116.02</media_hp_litro> <total_recalls_serie>1</total_recalls_serie> <media_recalls_100hp>0.16</media_recalls_100hp></serie_analise>
+<serie_analise><series>Série 6 M</series> <total_modelos>2</total_modelos> <modelos_com_resposta_nhtsa>0</modelos_com_resposta_nhtsa> <media_hp>533.50</media_hp> <media_hp_ton>299.6</media_hp_ton> <media_hp_litro>114.42</media_hp_litro> <total_recalls_serie/> <media_recalls_100hp/></serie_analise>
+<serie_analise><series>Série 8 M</series> <total_modelos>1</total_modelos> <modelos_com_resposta_nhtsa>1</modelos_com_resposta_nhtsa> <media_hp>600.00</media_hp> <media_hp_ton>318.3</media_hp_ton> <media_hp_litro>136.52</media_hp_litro> <total_recalls_serie>1</total_recalls_serie> <media_recalls_100hp>0.17</media_recalls_100hp></serie_analise>
 </relatorio_series_bmw_m>
