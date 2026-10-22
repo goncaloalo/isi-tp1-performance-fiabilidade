@@ -1,6 +1,8 @@
 # ISI TP1 — Performance e campanhas de segurança da gama BMW M
 
-**Auditoria final das capturas — 21/10/2026:** [inventário e seleção](docs/diagramas/README.md) e [checklist final](docs/CHECKLIST_CAPTURAS.md). Foram inspecionados 63 PNG, com 45 conteúdos distintos; destino final com 43 imagens. As duas capturas de J_main foram substituídas pelas versões com T6/Mail e foram acrescentadas quatro capturas T6. As evidências essenciais estão disponíveis para revisão final do relatório e vídeo; o estado de 20/10 abaixo é histórico.
+**Relatório final — 22/10/2026:** [Word](docs/relatorio_final.docx), [PDF](output/pdf/relatorio_final.pdf) e [fonte Markdown](docs/relatorio_final.md). Inclui os oito componentes pedidos no enunciado, T1–T6, J_main, PostgreSQL, JSON/XML, email, dashboard, vídeo e QR. Resultados verificados: 28/15/13/6. As conclusões não identificam os BMW M mais fiáveis e destacam a integração ETL.
+
+**Auditoria final das capturas — 21/10/2026:** [inventário e seleção](docs/diagramas/README.md) e [checklist final](docs/CHECKLIST_CAPTURAS.md). Foram inspecionados 63 PNG, com 45 conteúdos distintos; destino final com 43 imagens. As duas capturas de J_main foram substituídas pelas versões com T6/Mail e foram acrescentadas quatro capturas T6. As evidências essenciais estão integradas no relatório final; o estado de 20/10 abaixo é histórico.
 
 [Execução com Mail bem-sucedido](docs/diagramas/J_main_metricas_execucao.png) e [email recebido](docs/diagramas/T6_email_recebido.png) comprovam os resultados apresentados: 28 veículos, 15 respostas válidas, 13 sem dados e 6 séries. O utilizador confirmou sucesso com password manual; ${SMTP_PASSWORD} falhou com 535 e não está validado. Captura SMTP e job guardado com password vazia.
 
@@ -21,7 +23,7 @@ O campo `recalls_por_100hp` é um indicador exploratório do exercício ETL. **N
 
 Em **20/10/2026**, o autor executou manualmente `J_main` no Pentaho com sucesso. T1, T2, T3, T4 e T5 terminaram com `result=true`. Foram carregados **28 registos no PostgreSQL**, exportados **28 veículos em JSON** e **6 séries em XML**. O autor confirmou também 28 registos na tabela PostgreSQL.
 
-Esta confirmação atualiza o estado anterior de validação. Não foi criada uma nova execução ou captura durante a resolução documental. O vídeo e o QR Code continuam pendentes.
+Esta confirmação atualiza o estado anterior de validação. Não foi criada uma nova execução ou captura durante a resolução documental. O vídeo fornecido é https://youtu.be/GiM3ijfJCtM; o QR existente foi confirmado e incluído no relatório final.
 
 ## 2. Estrutura do repositório
 
@@ -97,7 +99,7 @@ As médias de potência por série são 422.50, 395.00, 487.75, 503.75, 533.50 e
 - O job não constitui uma transação distribuída entre API, ficheiros e PostgreSQL.
 - O PDI testado devolveu código de processo 0 numa falha de ligação em Pan; rever também o log e o resultado Kettle.
 - Capturas antigas podem mostrar configurações anteriores. A checklist deve ser confrontada com os KTR atuais.
-- Vídeo, URL publicado e QR Code continuam por produzir. O PDF intermédio foi removido; o PDF final ainda não foi criado.
+- Vídeo e QR incluídos no relatório final. O acesso público e a reprodução do vídeo devem ser confirmados numa janela privada antes da submissão.
 
 ## Dashboard local
 
@@ -112,6 +114,9 @@ Visualização dos resultados ETL, sem dependências nem internet: [instruções
 - [Inventário de diagramas](docs/diagramas/README.md)
 - [Decisões ETL](docs/decisoes_etl.md)
 - [Registo histórico da revisão](docs/REVISAO_FINAL.md)
-- PDF final: ainda não gerado; a fonte é `docs/relatorio_final.md`.
+- [Relatório final editável em Word](docs/relatorio_final.docx)
+- [Relatório final em PDF](output/pdf/relatorio_final.pdf)
+- [Enunciado do TP1](docs/enunciado_tp1_2026_2027.pdf)
+- [Verificação e pendências da entrega](docs/ENTREGA_RELATORIO_FINAL.md)
 
 Os registos históricos e algumas capturas antecedem a execução manual agora confirmada. O estado atualizado encontra-se neste README e no relatório.

@@ -1,93 +1,123 @@
-# Trabalho Prático 1 — Pipeline ETL da gama BMW M
+# BMW M: Performance e Fiabilidade
 
-**Auditoria das capturas — 21/10/2026:** o [inventário atualizado](diagramas/README.md) confronta todas as imagens com os KTR/KJB originais. As evidências essenciais estão disponíveis. Não foi executado Pentaho nesta auditoria.
+Relatório final do Trabalho Prático 1
 
-O envio foi confirmado pelo utilizador com password manual; ${SMTP_PASSWORD} falhou com erro 535. O job guardado tem password Mail vazia. T4/T5/T6 têm campos PostgreSQL ofuscados e não vazios, a resolver antes da entrega; nenhum valor foi reproduzido ou alterado. O job mantém um caminho absoluto local preexistente para T6. As descrições históricas de configuração externa e execuções anteriores abaixo não comprovam o estado atual dessas opções.
+**Autor:** Gonçalo Correia, n.º 22840  
+**Unidade curricular:** Integração de Sistemas de Informação  
+**Curso:** Licenciatura em Engenharia de Sistemas Informáticos  
+**Instituição:** Instituto Politécnico do Cávado e do Ave — Escola Superior de Tecnologia  
+**Ano letivo:** 2026/2027  
+**Docente:** Óscar Ribeiro  
+**Data:** 22 de outubro de 2026
 
-Evidências adicionais: [T6 — pipeline](diagramas/T6_pipeline_completo.png), [variáveis no parent job](diagramas/T6_config_set_variables.png), [email recebido 28/15/13/6](diagramas/T6_email_recebido.png), [SMTP Outlook 587/TLS sem password visível](diagramas/T6_config_mail.png) e [PostgreSQL: 28 linhas, 13 contagens e rácios NULL](diagramas/T4_validacao_nulls.png).
+<!-- PAGE -->
 
-**Autor:** Gonçalo Correia, n.º 22840
+## Resumo
 
-**Unidade curricular:** Integração de Sistemas de Informação (ISI)
+Este projeto utiliza o Pentaho Data Integration para integrar especificações de veículos BMW M, guardadas em CSV, com respostas JSON da API de campanhas de segurança da NHTSA. O processo limpa e valida os dados, cruza as fontes, calcula indicadores, carrega PostgreSQL e produz exportações JSON e XML. Um job coordena seis transformações, prepara um resumo por email e disponibiliza os resultados a uma dashboard local.
 
-**Curso e instituição:** Licenciatura em Engenharia de Sistemas Informáticos, IPCA / Escola Superior de Tecnologia
+Os artefactos verificados contêm 28 veículos, 15 respostas NHTSA válidas, 13 registos sem dados NHTSA válidos e 6 séries. A principal realização é a pipeline ETL completa. As campanhas de segurança não constituem uma medida comprovada de fiabilidade mecânica; o rácio recalls_por_100hp não tem justificação técnica forte para esse fim. Por isso, os dados não permitem indicar quais os BMW M mais fiáveis.
 
-**Ano letivo:** 2026/2027
-
-**Data:** outubro de 2026
+**Palavras-chave:** ETL, Pentaho, PostgreSQL, API REST, qualidade dos dados, BMW M.
 
 **Repositório:** [isi-tp1-performance-fiabilidade](https://github.com/goncaloalo/isi-tp1-performance-fiabilidade)
 
-## 1. Introdução e problema
+<!-- PAGE -->
 
-O trabalho integra especificações de veículos BMW M, fornecidas em CSV, com campanhas de segurança consultadas na API REST da NHTSA. O objetivo técnico é construir uma pipeline ETL completa: limpar, validar, cruzar e carregar os dados em PostgreSQL, exportando um catálogo JSON e um resumo XML.
+## Índice
 
-Os dados permitem calcular indicadores de potência e o rácio `recalls_por_100hp`. Este rácio é **exploratório e não constitui uma medida científica de fiabilidade mecânica**. A contagem de campanhas de segurança não mede a probabilidade de avaria nem permite concluir que maior potência causa mais falhas.
+- [1 Enquadramento](#1-enquadramento)
+- [2 Problema e objetivos](#2-problema-e-objetivos)
+- [3 Estratégia e metodologia](#3-estratégia-e-metodologia)
+- [4 Transformações](#4-transformações)
+- [5 Job e demonstração dos resultados](#5-job-e-demonstração-dos-resultados)
+- [6 Vídeo de demonstração](#6-vídeo-de-demonstração)
+- [7 Conclusão e trabalhos futuros](#7-conclusão-e-trabalhos-futuros)
+- [8 Referências bibliográficas](#8-referências-bibliográficas)
 
-### 1.1. Metodologia e proveniência
+## 1 Enquadramento
 
-- `data/raw/specs.csv` contém 29 registos de veículos entre 1985 e 2024. Não existe documentação que associe cada especificação a uma fonte BMW ou publicação independente. São dados de entrada do exercício, não especificações oficialmente verificadas.
-- `data/raw/series_lookup.csv` é uma tabela local que associa os prefixos M2, M3, M4, M5, M6 e M8 a séries e tipos agregados de carroçaria.
-- A NHTSA é a fonte oficial das campanhas de segurança consultadas para o mercado dos EUA. T2 envia `make`, `model=model_prefix` e `modelYear=year`, com codificação dos valores por `encodeURIComponent`.
+O trabalho foi desenvolvido individualmente no âmbito de Integração de Sistemas de Informação. Segue o enunciado do TP1 de 2026/2027, que propõe a aplicação de processos de extração, transformação e carga de dados e exige três fases: recolha e preparação, processamento e transformação, e persistência e exportação [1].
 
-O endpoint utilizado é:
+Foi escolhido o Pentaho Data Integration, utilizando o Spoon para construir e executar as transformações e o job. O PostgreSQL assegura a persistência. O HTML, CSS e JavaScript permitem consultar os resultados numa dashboard local. A versão PDI 10.2.0.0-222 e Java 21.0.12.1 constam do registo técnico do projeto; não foram reinstalados para a revisão documental.
 
-```text
-GET https://api.nhtsa.gov/recalls/recallsByVehicle?make=<make>&model=<model_prefix>&modelYear=<year>
-```
+## 2 Problema e objetivos
 
-Por exemplo, BMW M3 E46 CSL (2003) é consultado como BMW M3 (2003). As campanhas devolvidas para essa combinação genérica não comprovam aplicabilidade à variante CSL ou a um VIN concreto.
+O tema «BMW M: Performance e Fiabilidade» parte do interesse em reunir características de desempenho e informação sobre campanhas de segurança. As fontes apresentam formatos e níveis de detalhe diferentes: o CSV identifica modelos e versões, enquanto a API é consultada por marca, modelo genérico e ano.
 
-A validação técnica combina inspeção dos KTR/KJB, testes locais e execução manual no Pentaho. A execução de 20/10/2026 foi confirmada pelo autor; as capturas existentes são tratadas separadamente para não lhes atribuir uma data ou configuração não verificada.
+O objetivo demonstrável é integrar essas fontes de forma consistente. Pretende-se validar entradas, preservar informação em falta, executar cruzamentos e cálculos, guardar resultados e torná-los consultáveis. O projeto não estima taxas de avaria nem valida uma classificação de fiabilidade. O título descreve a motivação inicial; a conclusão explicita os limites do que os dados permitem responder.
 
-## 2. Arquitetura da pipeline
+<!-- PAGE -->
 
-A arquitetura mantém seis transformações e um job de orquestração. O diagrama seguinte representa o núcleo de dados T1–T5; T6 e Mail estão documentados nas capturas finais:
+## 3 Estratégia e metodologia
 
-```mermaid
-flowchart LR
-    RAW["specs.csv e series_lookup.csv"] --> T1["T1: limpar e validar"]
-    T1 --> LIMPOS["specs_limpas.csv"]
-    T1 --> REJ["Quarentena: especificações e lookup"]
-    LIMPOS --> T2["T2: consultar NHTSA"]
-    API["API REST NHTSA"] --> T2
-    T2 --> RECALLS["nhtsa_recalls.csv"]
-    LIMPOS --> T3["T3: consolidar"]
-    RECALLS --> T3
-    T3 --> FINAL["CSV: 28 veículos, 18 campos"]
-    FINAL --> T4["T4: carregar PostgreSQL"]
-    T4 --> PG[("carros_etl")]
-    PG --> T5["T5: exportar"]
-    T5 --> JSON["28 veículos JSON"]
-    T5 --> XML["6 séries XML"]
-```
+### 3.1 Fontes e preparação
 
-| Componente | Entrada | Saída |
+O ficheiro data/raw/specs.csv foi preparado localmente para o exercício e contém 29 registos, de 1985 a 2024. Inclui marca, modelo, ano, potência, peso, aceleração de 0–60 mph, cilindrada e preço em USD. Não existe uma referência externa documentada para cada valor; por isso, estas especificações não são apresentadas como oficialmente verificadas pela BMW.
+
+O ficheiro data/raw/series_lookup.csv contém seis correspondências entre prefixos M2, M3, M4, M5, M6 e M8, séries e tipos de carroçaria. É uma classificação agregada por prefixo: não descreve necessariamente a carroçaria específica de todas as variantes.
+
+A API REST da NHTSA fornece respostas JSON relativas a campanhas de segurança. A consulta usa marca, modelo genérico e ano [2]. A informação da NHTSA sobre pesquisa por modelo é geral; uma identificação individual por VIN tem outro nível de detalhe [3]. Assim, uma consulta BMW M3 de 2003 não comprova a aplicação de todas as campanhas à variante M3 E46 CSL.
+
+### 3.2 Organização do processo
+
+A arquitetura separa responsabilidades em seis transformações. Os ficheiros intermédios permitem verificar o resultado de cada fase. O PostgreSQL serve de origem às exportações e ao resumo do email; a dashboard lê o catálogo exportado.
+
+| Etapa | Entrada principal | Resultado |
 |---|---|---|
-| T1 | Especificações e lookup CSV | CSV limpo e dois caminhos de rejeitados |
-| T2 | Modelos genéricos e anos de T1 | Contagens NHTSA e metadados HTTP |
-| T3 | Especificações limpas e consultas NHTSA | CSV consolidado com 18 campos |
+| T1 | CSV de especificações e lookup | CSV limpo e quarentena |
+| T2 | Modelos genéricos e anos de T1 | Respostas NHTSA validadas em CSV |
+| T3 | CSV limpo e resultados NHTSA | CSV consolidado com 18 campos |
 | T4 | CSV consolidado | Tabela PostgreSQL |
 | T5 | Tabela PostgreSQL | Catálogo JSON e resumo XML |
-| J_main | Execução manual ou Kitchen | Sequência T1 a T5 e encaminhamento de falhas |
+| T6 | Tabela PostgreSQL | Quatro variáveis para o email |
+| J_main | T1 a T6 e Mail | Execução sequencial e controlo de falhas |
+| Dashboard | Catálogo JSON | Indicadores, gráficos e pesquisa |
 
-Os caminhos Kettle usam `${Internal.Entry.Current.Directory}`. Esta opção reduz dependências da pasta do repositório, mas continua a exigir configuração local do PDI, JDBC e PostgreSQL.
+### 3.3 Critérios de qualidade e validação
 
-## 3. Desenvolvimento e decisões técnicas
+As regras centrais são não inventar valores, não confundir falhas da API com zero campanhas e manter a coerência entre formatos. A revisão confrontou os seis KTR, o KJB, o SQL, os CSV, o JSON, o XML e as capturas reais. As provas de execução existentes e a inspeção dos ficheiros são identificadas separadamente. Não se atribui uma nova execução Pentaho à revisão de 22/10/2026.
 
-A inspeção de 21/10/2026 dos KTR originais confirma T4 com Table Output/TRUNCATE e T2 com estados OK/ERRO.
+<!-- PAGE -->
 
-**Capturas:** a auditoria de 21/10/2026 substituiu o canvas e as métricas de J_main pelas versões com T6/Mail e acrescentou quatro capturas T6. As restantes imagens recentes já eram idênticas ao destino, incluindo o excerto JSON com nome normalizado. A [checklist final](CHECKLIST_CAPTURAS.md) e o [inventário revisto](diagramas/README.md) identificam as evidências atuais, as históricas e os limites dos recortes.
+### 3.4 Correspondência com o enunciado
 
-### 3.1. T1 — extração, limpeza e enriquecimento
+O quadro seguinte relaciona as três fases e as mais-valias descritas nas páginas 2 e 3 do enunciado com a implementação. A fase de entrada consome dois formatos, CSV e JSON. O XML é um formato de saída adicional, não uma terceira fonte de entrada.
 
-T1 normaliza marca e modelo, extrai versão e prefixo por regex e atribui `Base` quando não encontra uma versão especial. Valida peso preenchido e positivo, potência e cilindrada positivas e ano entre 1886 e 2100.
+| Requisito ou critério | Implementação e prova |
+|---|---|
+| Recolha com formatos e fontes diversos | T1 lê CSV local; T2 consome JSON de API REST externa |
+| Limpeza e validação | T1 normaliza texto, trata a versão omissa e rejeita campos inválidos; T2 valida HTTP e JSON |
+| Expressões regulares | T1 extrai versão e prefixo de modelo |
+| Duplicados, ordenação e seleção | Sort Rows, Unique Rows, Select Values e Filter Rows |
+| Cruzamento e enriquecimento | Stream Lookup em T1; Merge Join LEFT OUTER em T3 |
+| Cálculos e agrupamentos | Métricas em T1 e T3; Group By por série em T5 |
+| Mapeamento e conversão de estruturas | Consolidação em 18 campos; mapeamento PostgreSQL; serialização JSON/XML |
+| Persistência em base de dados | T4 carrega PostgreSQL; T5 e T6 executam consultas SQL |
+| Exportação | CSV intermédios, catálogo JSON e resumo XML |
+| Job e serviço remoto | J_main coordena T1–T6; Mail envia resumo via SMTP |
+| Logs e acompanhamento | Log e métricas do Spoon, capturas do job e estados HTTP no CSV intermédio |
+| Visualização dos resultados | Dashboard local com indicadores, gráficos, filtros e atualização de leitura |
 
-O BMW M3 E92 GTS (2010) mantém o peso omisso e segue para `data/staging/rejeitados_specs.csv`. Não foi inventado um peso. Depois do lookup, um segundo filtro valida `series` e `body_type`, encaminhando falhas para `rejeitados_lookup_series.csv`.
+Não se implementaram NoSQL, MQTT, FTP/SFTP, YAML ou processamento contínuo. O enunciado apresenta estas tecnologias como exemplos ou ações possíveis. A dashboard permite interação e atualização manual, mas não recebe um fluxo em tempo real. Não se aplicou anonimização aos dados de veículos, que não incluem proprietários ou VIN; a conta usada para email pertence à configuração operacional.
 
-A fonte atual não tem duplicados na chave `(make, model, year)`. Os operadores `Sort Rows` e `Unique Rows` permanecem para demonstrar a regra, sem alegar que foi removido um duplicado BMW M3.
+O relatório inclui enquadramento, problema, estratégia, diagramas e explicação das transformações e do job, vídeo com QR, conclusão e referências, conforme a página 4 do enunciado. O repositório Git reúne os materiais do projeto. O registo na folha partilhada, a submissão no e-learning até 22 de outubro e a defesa individual são procedimentos académicos distintos da execução da pipeline.
 
-Os cálculos são:
+<!-- PAGE -->
+
+## 4 Transformações
+
+### 4.1 T1 Extrair e preparar especificações
+
+T1 lê specs.csv e series_lookup.csv. String Operations remove espaços supérfluos e coloca a marca em maiúsculas. Uma expressão regular procura Competition, CSL, GTS, CS ou Touring no nome; quando não identifica uma versão especial, o valor passa a Base. Outra expressão extrai o prefixo usado no lookup e na API.
+
+![Figura 1 — Transformação T1 com validação e dois caminhos de quarentena.](diagramas/T1_pipeline_completo.png)
+
+Filter Rows exige peso preenchido e positivo, potência e cilindrada positivas e ano entre 1886 e 2100. O M3 E92 GTS de 2010 não tem peso e é enviado para data/staging/rejeitados_specs.csv. Não se preenche esse valor por estimativa. Sort Rows e Unique Rows usam a chave make, model e year. A fonte atual não contém duplicados; o operador permanece como controlo preventivo, sem se alegar que removeu registos nesta execução.
+
+Stream Lookup acrescenta series e body_type pelo prefixo. Um segundo filtro exige ambos os campos preenchidos; falhas seguem para rejeitados_lookup_series.csv. O ficheiro atual não contém linhas rejeitadas por lookup.
+
+Os cálculos usam uma constante 1000 para converter unidades:
 
 ```text
 peso_ton = weight_kg / 1000
@@ -96,308 +126,255 @@ hp_por_tonelada = engine_hp / peso_ton
 hp_por_litro = engine_hp / litros
 ```
 
-A saída contém 28 veículos válidos.
+O resultado é data/processed/specs_limpas.csv, com 28 veículos. Estes indicadores descrevem potência relativa ao peso e à cilindrada. Não medem durabilidade ou probabilidade de avaria. A aceleração permanece em segundos de 0–60 mph, sem conversão para 0–100 km/h.
 
-#### Capturas de T1
+![Figura 2 — Métricas de T1: 29 entradas, 1 rejeitado e 28 veículos válidos.](diagramas/T1_metricas_execucao.png)
 
-![Pipeline Completo T1](./diagramas/T1_pipeline_completo.png)
+<!-- PAGE -->
 
-*Figura 1 — Canvas atual de T1: validação de campos e lookup, com dois caminhos de rejeitados.*
+### 4.2 T2 Consultar e validar a NHTSA
 
-![Configuração String Operations T1](./diagramas/T1_config_string_operations.png)
+T2 seleciona marca, prefixo e ano, renomeia model_prefix para model, ordena e elimina combinações repetidas antes da consulta. O JavaScript constrói o URL com codificação dos valores de marca e modelo. REST Client realiza o pedido GET e devolve o corpo JSON e o estado HTTP.
 
-*Figura 2 — Normalização de texto com trim e conversão da marca para maiúsculas.*
+![Figura 3 — Transformação T2 com construção do URL, pedido REST e validação explícita.](diagramas/T2_pipeline_completo.png)
 
-![Configuração Validação de Peso T1](./diagramas/T1_config_filter_peso.png)
+O endpoint utilizado é https://api.nhtsa.gov/recalls/recallsByVehicle, com os parâmetros make, model e modelYear. Por exemplo: make=BMW, model=M3 e modelYear=2003. O campo Count da resposta é aceite apenas quando o estado HTTP é 2xx, o corpo é JSON válido e Count é um número inteiro, finito e não negativo.
 
-*Figura 3 — Recorte parcial do filtro atual: peso não nulo e positivo; potência, cilindrada e ano ficam abaixo do scroll e estão confirmados no KTR.*
+| Situação | Estado guardado | Contagem |
+|---|---|---|
+| HTTP 2xx, JSON válido e Count maior que zero | OK | Valor devolvido |
+| HTTP 2xx, JSON válido e Count igual a zero | OK | 0 |
+| HTTP inválido, JSON inválido ou Count inválido/ausente | ERRO | NULL |
 
-![Configuração Tratar Nulos T1](./diagramas/T1_config_tratar_nulos.png)
+O KTR atual usa apenas OK e ERRO. Não existe a classificação detalhada de estados descrita em versões antigas da documentação. Um HTTP 400 com Count igual a zero continua a ser erro: esse zero não é evidência de ausência de campanhas. Falhas de transporte ou timeout que façam o REST Client falhar interrompem a transformação; não se demonstra recuperação automática desses casos.
 
-*Figura 4 — Preenchimento da versão Base quando não foi identificada uma edição especial.*
+O CSV intermédio data/processed/nhtsa_recalls.csv contém make, model, year, nhtsa_recalls_count, nhtsa_query_status e nhtsa_http_status. Nos ficheiros verificados há 28 linhas: 15 OK com HTTP 200 e 13 ERRO com HTTP 400. Esta distribuição descreve os resultados guardados, não garante a repetição dos mesmos valores numa consulta futura.
 
-![Configuração Regex Versão T1](./diagramas/T1_config_regex_versao.png)
+![Figura 4 — Pré-visualização NHTSA com códigos HTTP, estados OK/ERRO e contagens ausentes.](diagramas/T2_preview_dados_finais.png)
 
-*Figura 5 — Expressão regular para identificar a versão no nome do modelo.*
+<!-- PAGE -->
 
-![Configuração Regex Prefixo T1](./diagramas/T1_config_regex_prefixo.png)
+### 4.3 T3 Consolidar os dados e calcular o rácio
 
-*Figura 6 — Expressão regular para obter o prefixo genérico do modelo.*
+T3 lê as especificações limpas e os resultados NHTSA. Ordena ambos os fluxos e aplica Merge Join com LEFT OUTER JOIN. As chaves são make, model_prefix e year nas especificações, correspondentes a make, model e year nas consultas.
 
-![Configuração Calculator T1](./diagramas/T1_config_calculator_metricas.png)
+![Figura 5 — T3 preserva os veículos de T1 e consolida as contagens NHTSA.](diagramas/T3_pipeline_completo.png)
 
-*Figura 7 — Cálculos mecânicos com a constante 1000.*
+A junção à esquerda mantém os veículos válidos mesmo sem resposta NHTSA utilizável. Select Values remove campos duplicados e os metadados de estado HTTP da saída de negócio. Esses metadados continuam disponíveis no CSV intermédio de T2. O consolidado contém 28 linhas e 18 campos.
 
-![Configuração Stream Lookup T1](./diagramas/T1_config_stream_lookup.png)
-
-*Figura 8 — Lookup de série e carroçaria; a validação posterior é visível no canvas atual.*
-
-![Métricas de Execução T1](./diagramas/T1_metricas_execucao.png)
-
-*Figura 9 — Métricas: 29 dados de entrada, 1 rejeitado, 28 válidos, 0 rejeitados de lookup e 0 erros; sem data de execução visível.*
-
-![Preview dos Dados Finais T1](./diagramas/T1_preview_dados_finais.png)
-
-*Figura 10 — Pré-visualização existente de specs_limpas.csv.*
-
-### 3.2. T2 — API NHTSA e validação de respostas
-
-T2 seleciona combinações únicas de marca, prefixo de modelo e ano, constrói os URLs e executa pedidos GET no REST Client. O step `Validar resposta NHTSA` analisa `http_status` e o JSON.
-
-Uma contagem só é aceite com HTTP 2xx, JSON válido e `Count` inteiro não negativo. O KTR original atual distingue OK e ERRO. Zero válido também recebe OK; respostas inválidas mantêm contagem nula. Não existe classificação detalhada nem logging específico de categorias nesse JavaScript. Timeout e falha de transporte no REST Client fazem a transformação falhar e seguem pelo caminho de erro do job.
-
-O CSV intermédio mantém seis campos:
-
-```text
-make, model, year, nhtsa_recalls_count, nhtsa_query_status, nhtsa_http_status
-```
-
-Zero válido e ausência de informação válida têm significados diferentes. Uma resposta HTTP 400 com corpo `Count=0` não é aceite como zero campanhas.
-
-#### Capturas de T2
-
-![Pipeline Completo T2](./diagramas/T2_pipeline_completo.png)
-
-*Figura 11 — Canvas atual de T2, com validação HTTP/JSON em JavaScript e sem JSON input.*
-
-![Configuração JavaScript URL T2](./diagramas/T2_config_javascript_url.png)
-
-*Figura 12 — Construção do URL com parâmetros de marca, modelo genérico e ano.*
-
-![Configuração REST Client T2](./diagramas/T2_config_rest_client.png)
-
-*Figura 13 — REST Client configurado para pedidos GET dinâmicos.*
-
-![Configuração JSON Input T2](./diagramas/T2_config_json_input.png)
-
-*Figura 14 — Parser JSON input histórico, substituído no KTR atual por Validar resposta NHTSA.*
-
-![Métricas de Execução T2](./diagramas/T2_metricas_execucao.png)
-
-*Figura 15 — Métricas de uma execução anterior de T2; não confirmam a validade de todas as respostas HTTP.*
-
-![Preview dos Dados Finais T2](./diagramas/T2_preview_dados_finais.png)
-
-*Figura 16 — Preview de nhtsa_recalls.csv com 28 linhas, estados OK/ERRO, códigos HTTP 200/400 e contagens nulas nas respostas inválidas. Os estados OK/ERRO correspondem ao KTR original atual: 15 respostas válidas e 13 inválidas.*
-
-![Validação JavaScript da resposta NHTSA T2](./diagramas/T2_config_validar_resposta.png)
-
-*Figura 16a — Janela Validar resposta NHTSA, com validação HTTP/JSON e saídas api_error_type e nhtsa_recalls_count.*
-
-### 3.3. T3 — consolidação e indicador exploratório
-
-T3 ordena os fluxos e faz `LEFT OUTER JOIN` pela correspondência `(make, model_prefix, year) = (make, model, year)`. Preserva os veículos de T1, remove campos duplicados e os metadados técnicos HTTP da saída final.
-
-As contagens ausentes continuam nulas. O `Calculator` aplica:
+O Calculator calcula o indicador exploratório:
 
 ```text
 recalls_por_100hp = nhtsa_recalls_count / engine_hp * 100
 ```
 
-O rácio também fica nulo quando não existe contagem válida. O consolidado mantém 28 veículos e 18 campos. O preço do M5 E34 continua nulo.
+Quando a contagem é nula, o rácio também fica nulo. O preço omisso do M5 E34 é preservado, porque preço não é obrigatório para os cálculos definidos. O ficheiro final é data/processed/bmw_m_performance_fiabilidade.csv.
 
-#### Capturas de T3
+![Figura 6 — Configuração do LEFT OUTER JOIN e das chaves de correspondência.](diagramas/T3_config_merge_join.png)
 
-![Pipeline Completo T3](./diagramas/T3_pipeline_completo.png)
+O rácio foi mantido para documentar a transformação implementada. Não possui justificação técnica forte como medida de fiabilidade: a potência não representa o número de veículos expostos, a quilometragem, a idade ou as oportunidades de avaria. A título puramente aritmético, uma campanha em 200 hp produz 0,50; a mesma campanha em 400 hp produz 0,25. O valor baixa apenas por aumentar a potência, sem demonstrar qualquer melhoria de fiabilidade.
 
-*Figura 17 — Canvas atual de T3, com preservação de contagens nulas e sem imputação de zero.*
+Não se usa este rácio para recomendar modelos, criar um ranking ou inferir uma relação causal entre potência e falhas. A dashboard privilegia a cobertura dos dados e as características de desempenho.
 
-![Configuração Merge Join T3](./diagramas/T3_config_merge_join.png)
+<!-- PAGE -->
 
-*Figura 18 — Merge Join com LEFT OUTER JOIN e chaves compostas.*
+### 4.4 T4 Carregar o PostgreSQL
 
-![Configuração Select Values T3](./diagramas/T3_config_select_values.png)
+T4 lê o CSV consolidado e escreve os 18 campos de negócio na tabela public.bmw_m_performance_fiabilidade da base carros_etl. A transformação atual usa Table Output, com Truncate table ativo, escrita em batch e commit configurado para 1000 linhas. Não usa Insert/Update.
 
-*Figura 19 — Seleção de campos anterior; a configuração atual remove também os metadados técnicos NHTSA.*
+![Figura 7 — T4 lê o CSV consolidado e carrega a tabela PostgreSQL.](diagramas/T4_pipeline_completo.png)
 
-![Configuração Calculator T3](./diagramas/T3_config_calculator_metricas.png)
+O DDL de referência encontra-se em sql/01_schema.sql. Acrescenta id e loaded_at aos campos de negócio, define chave única em make, model e year e contém restrições para ano e valores mecânicos positivos. Os campos NHTSA admitem NULL e, quando preenchidos, não podem ser negativos. As métricas usam NUMERIC. O DDL foi inspecionado; a captura antiga de criação da tabela não demonstra que todas as suas restrições estejam aplicadas na base existente.
 
-*Figura 20 — Cálculo de recalls_por_100hp, indicador exploratório.*
+| Grupo | Campos de negócio |
+|---|---|
+| Identificação | make, model, year, versao, model_prefix |
+| Especificações | engine_hp, weight_kg, zero_to_sixty_mph, engine_cc, price_usd |
+| Conversões e indicadores | peso_ton, litros, hp_por_tonelada, hp_por_litro |
+| Classificação | series, body_type |
+| NHTSA | nhtsa_recalls_count, recalls_por_100hp |
 
-![Métricas de Execução T3](./diagramas/T3_metricas_execucao.png)
+A ligação Postgres_Carros está configurada diretamente para localhost:5432, base carros_etl e utilizador postgres em T4, T5 e T6. As propriedades PGHOST/PGPASSWORD do exemplo histórico não são a configuração usada pelos ficheiros atuais.
 
-*Figura 21 — 28 linhas consolidadas e 0 erros; as 56 entradas no join correspondem aos dois fluxos.*
+TRUNCATE substitui os dados anteriores antes da carga. Esta estratégia é simples para a pequena amostra, mas não garante uma substituição integral segura perante falhas. Não existe demonstração de rollback global ou de reexecução em cenário de erro. CREATE TABLE IF NOT EXISTS também não migra automaticamente uma tabela antiga [5].
 
-![Preview dos Dados Finais T3](./diagramas/T3_preview_dados_finais.png)
+![Figura 8 — Consulta capturada no PostgreSQL: 28 linhas, 13 contagens NULL e 13 rácios NULL.](diagramas/T4_validacao_nulls.png)
 
-*Figura 22 — 28 linhas e 13 contagens NHTSA NULL; coluna do rácio fora do recorte.*
+A figura 8 mostra os resultados, mas não o texto da consulta. É uma prova dos totais apresentados, não uma auditoria completa do esquema físico.
 
-### 3.4. T4 — carga PostgreSQL
+<!-- PAGE -->
 
-O esquema de referência é `sql/01_schema.sql`. Mantém os 18 campos de negócio, `id` e `loaded_at`, com chave única `(make, model, year)`. Impõe limites ao ano, valores mecânicos positivos e valores NHTSA não negativos quando presentes. Preço e campos NHTSA admitem `NULL`; as métricas usam tipos `NUMERIC`.
+### 4.5 T5 Exportar JSON e XML
 
-O KTR original atual usa Table Output com TRUNCATE ativo, commit 1000, batch e 18 mapeamentos. Substitui o conteúdo da tabela; uma falha pode deixar a tabela vazia ou parcialmente carregada. Não existe garantia de atomicidade para todo o dataset.
+T5 consulta PostgreSQL, ordena por série e ano e copia o fluxo para dois ramos. O primeiro escreve um catálogo JSON detalhado. O segundo aplica Group By por série e produz um resumo XML. A cópia para dois ramos explica as 56 emissões observadas na leitura, apesar de existirem apenas 28 veículos.
 
-T4 e T5 resolvem a ligação `Postgres_Carros` através das propriedades Kettle `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER` e `PGPASSWORD`. O exemplo sem segredos está em `config/kettle.properties.example`. A configuração local é descrita no README.
+![Figura 9 — T5 com saída JSON e ramo de agregação para XML.](diagramas/T5_pipeline_completo.png)
 
-#### Capturas de T4
+O ficheiro data/output/bmw_m_catalogo_completo.json contém a lista catalogo_bmw_m, com 28 objetos e os 18 campos de negócio. Preserva null no preço omisso e nas contagens e rácios sem dados válidos. É a fonte da dashboard.
 
-![DDL Create Table T4](./diagramas/T4_ddl_create_table.png)
+O ficheiro data/output/bmw_m_resumo_series.xml contém a raiz relatorio_series_bmw_m e seis elementos serie_analise. Para cada série, exporta total_modelos, modelos_com_resposta_nhtsa, media_hp, media_hp_ton, media_hp_litro, total_recalls_serie e media_recalls_100hp.
 
-*Figura 23 — Preparação anterior do esquema; o DDL atual acrescenta restrições e a chave make, model, year.*
+A consulta converte engine_hp para NUMERIC(10,2), no campo auxiliar engine_hp_agregacao, para preservar médias decimais. Também cria nhtsa_consulta_valida, com 1 quando existe contagem e 0 quando é NULL. A soma deste campo permite mostrar a cobertura NHTSA de cada série, incluindo respostas válidas com zero campanhas.
 
-![Pipeline Completo T4](./diagramas/T4_pipeline_completo.png)
+![Figura 10 — Métricas de T5: 28 linhas no JSON e 6 no XML.](diagramas/T5_metricas_execucao.png)
 
-*Figura 24 — Canvas atual de T4: leitura CSV e Table Output.*
+As médias e somas NHTSA baseiam-se apenas nos registos com contagem válida. Para a Série 6 M, sem respostas válidas, os elementos de soma e média de recalls estão vazios no XML. Isso significa informação indisponível, não zero campanhas.
 
-![Configuração CSV Input T4](./diagramas/T4_config_csv_input.png)
+As saídas estão configuradas para não abrir um novo ficheiro na inicialização. Esta opção reduz o risco de substituir uma exportação antes de chegar a primeira linha, mas não torna a escrita transacional. Os resultados devem continuar a ser verificados após cada execução.
 
-*Figura 25 — Leitura do CSV consolidado com caminho relativo e tipos numéricos.*
+<!-- PAGE -->
 
-![Métricas de Execução T4](./diagramas/T4_metricas_execucao.png)
+### 4.6 T6 Preparar o resumo por email
 
-*Figura 26 — Carga de 28 linhas, sem erros de execução.*
+T6 consulta a tabela PostgreSQL e calcula quatro valores: COUNT(*) para veículos, COUNT(nhtsa_recalls_count) para respostas válidas, a diferença entre ambos para registos sem dados e COUNT(DISTINCT series) para séries. COUNT(campo) ignora NULL e inclui zero, mantendo a distinção entre ausência de dados e zero válido.
 
-![Dados Persistidos no PostgreSQL T4](./diagramas/T4_dados_postgres.png)
+![Figura 11 — T6 consulta estatísticas e publica variáveis no job principal.](diagramas/T6_pipeline_completo.png)
 
-*Figura 27 — Cabeçalho PostgreSQL com 28 resultados e preço do M5 E34 NULL.*
+Set variables publica no parent job ETL_TOTAL_VEICULOS, ETL_NHTSA_OK, ETL_NHTSA_SEM_DADOS e ETL_TOTAL_SERIES. A entrada Mail de J_main usa estes valores no corpo do resumo. O envio ocorre depois das transformações, quando o percurso de sucesso chega a Mail.
 
-![Configuração Table Output T4](./diagramas/T4_config_table_output.png)
+![Figura 12 — Email recebido em 21/10/2026 com os totais 28, 15, 13 e 6.](diagramas/T6_email_recebido.png)
 
-*Figura 27a — Table Output com Truncate table ativo, correspondente ao KTR original atual.*
+A captura confirma a receção de uma mensagem com esses totais e explicita que os valores sem dados foram preservados como NULL. A configuração registada usa smtp.office365.com, porta 587, autenticação e TLS. O envio foi conseguido com introdução manual da password no Spoon; a substituição por SMTP_PASSWORD não ficou validada e apresentou erro 535 no registo anterior. O job guardado tem a password Mail vazia.
 
-![Mapeamentos Database fields T4](./diagramas/T4_config_database_fields.png)
+Assim, o resumo é preparado e enviado pelo job após configuração da autenticação, mas não se afirma que o envio sem intervenção esteja operacional em qualquer computador. Não foi enviado um novo email durante a preparação deste relatório.
 
-*Figura 27b — Separador Database fields do Table Output com 18 mapeamentos.*
+<!-- PAGE -->
 
-### 3.5. T5 — catálogo JSON e resumo XML
+## 5 Job e demonstração dos resultados
 
-T5 lê a tabela ordenada por série e ano. A opção `distribute=N` copia cada linha para dois ramos: catálogo JSON com 18 atributos por veículo e resumo XML agrupado por `series`.
+### 5.1 Orquestração com J_main
 
-A média de potência usa um campo auxiliar decimal:
+J_main executa T1, T2, T3, T4, T5 e T6 por ordem, seguindo-se Mail e Sucesso ETL. Cada transformação possui uma ligação de falha para Abortar por Erro. As ligações de sucesso impedem que a etapa seguinte prossiga normalmente quando a anterior falha.
 
-```sql
-CAST(engine_hp AS NUMERIC(10,2)) AS engine_hp_agregacao
+![Figura 13 — Job principal com T1–T6, Mail e tratamento de falhas das transformações.](diagramas/J_main_pipeline_completo.png)
+
+Mail não tem ligação explícita para Abortar por Erro; o seu tratamento de falhas não deve ser apresentado como equivalente ao das seis transformações. O job coordena o processo, mas não fornece uma transação distribuída entre API, ficheiros, base de dados e email.
+
+![Figura 14 — Captura de 21/10/2026 com sucesso de T1–T6, Mail e J_main.](diagramas/J_main_metricas_execucao.png)
+
+A figura 14 demonstra uma execução bem-sucedida registada. A hora está truncada; não se associa esta execução ao email da figura 12 apenas por partilharem a data. As capturas de configuração e métricas podem pertencer a momentos distintos. O número de erros de execução não substitui a análise dos estados HTTP: T2 pode terminar e preservar respostas inválidas como NULL.
+
+<!-- PAGE -->
+
+### 5.2 Resultados e provas de consistência
+
+Os ficheiros existentes, revistos em 22/10/2026, contêm 29 entradas, um rejeitado por peso omisso e 28 veículos no consolidado e no JSON. Os 28 resultados NHTSA repartem-se por 15 respostas válidas e 13 sem dados válidos. A cobertura é 15/28, aproximadamente 53,6%. As seis séries do XML correspondem às séries distintas do catálogo.
+
+| Série | Veículos | NHTSA válida | Sem dados | Potência média hp |
+|---|---:|---:|---:|---:|
+| Série 2 M | 4 | 4 | 0 | 422,50 |
+| Série 3 M | 9 | 6 | 3 | 395,00 |
+| Série 4 M | 4 | 3 | 1 | 487,75 |
+| Série 5 M | 8 | 1 | 7 | 503,75 |
+| Série 6 M | 2 | 0 | 2 | 533,50 |
+| Série 8 M | 1 | 1 | 0 | 600,00 |
+| Total | 28 | 15 | 13 | — |
+
+As somas das contagens válidas por série são 5, 22, 7, 1, indisponível e 1, respetivamente. As médias exportadas de recalls_por_100hp são 0,2925, 0,9700, 0,5000, 0,1600, indisponível e 0,1700. São valores descritivos do exercício, não uma classificação de fiabilidade. Uma campanha pode aparecer em consultas de anos diferentes; a soma não equivale necessariamente a campanhas únicas.
+
+| Verificação | Resultado e alcance |
+|---|---|
+| CSV consolidado e JSON | 28 chaves únicas e igualdade dos 18 campos por veículo |
+| Informação ausente | 13 contagens e 13 rácios NULL; preço do M5 E34 também NULL |
+| Respostas NHTSA | 15 OK/200 e 13 ERRO/400 no CSV guardado |
+| XML | 6 séries; totais, cobertura e médias de potência coerentes com JSON |
+| Capturas PostgreSQL e Spoon | Comprovam os totais mostrados e uma execução anterior bem-sucedida |
+| QR fornecido | Conteúdo descodificado corresponde ao URL do vídeo |
+
+As verificações dos artefactos não executaram novamente a API, o Pentaho ou a base de dados. Os 23 testes Python citados em registos anteriores são históricos; essa infraestrutura foi retirada e não é apresentada como teste atual. Também não se demonstraram ensaios de falha SMTP, rollback, carga concorrente ou medições de desempenho nesta revisão.
+
+<!-- PAGE -->
+
+### 5.3 Dashboard local
+
+A dashboard usa HTML, CSS e JavaScript nativo. Lê o catálogo JSON através de um servidor HTTP local e apresenta os totais de veículos, séries, respostas válidas e registos sem dados. Mostra gráficos de distribuição por série e cobertura NHTSA, além de uma tabela com filtro de série e pesquisa por modelo, versão ou ano.
+
+![Figura 15 — Dashboard a apresentar os artefactos atuais, capturada na revisão de 22/10/2026.](diagramas/dashboard_relatorio_final.png)
+
+Os filtros afetam apenas a tabela; os indicadores e gráficos continuam a descrever o catálogo completo. A verificação local confirmou 28 veículos, 6 séries, 15 respostas válidas, 13 sem dados e 53,6% de cobertura. O filtro M3 combinado com a pesquisa CSL devolveu um veículo.
+
+O botão Atualizar dados volta a ler o JSON. Não executa o ETL, não consulta a API e não atualiza PostgreSQL. A hora exibida corresponde à leitura local. O XML está disponível para consulta, mas não é a fonte dos indicadores. A página mantém NULL como «Sem dados» e não apresenta rankings de fiabilidade ou de recalls por potência.
+
+### 5.4 Reprodução da demonstração
+
+No computador preparado, abrir J_main.kjb no Spoon, testar a ligação Postgres_Carros e configurar a autenticação SMTP antes de executar. Confirmar os resultados de T1–T6 e Mail, as métricas e os estados NHTSA. T4 substitui os dados da tabela, pelo que a demonstração deve usar a base destinada ao exercício.
+
+Para consultar a dashboard, iniciar um servidor na raiz do repositório:
+
+```text
+python -m http.server 8000 --bind 127.0.0.1
 ```
 
-O `GroupBy` aplica `AVERAGE(engine_hp_agregacao)`; o XML usa o formato `0.00`. O resumo contém contagem de modelos, médias de potência e rácios mecânicos, soma de campanhas, média do indicador exploratório e `modelos_com_resposta_nhtsa`.
+Abrir http://localhost:8000/dashboard/. Python serve apenas os ficheiros; não participa na execução ETL. Não é necessário instalar bibliotecas da dashboard.
 
-Este último campo conta linhas com contagem NHTSA válida, sem provar cobertura da variante. As agregações NHTSA usam apenas valores não nulos; não se deve interpretar uma série sem respostas válidas como zero campanhas.
+<!-- PAGE -->
 
-Os outputs atuais adiam a abertura dos ficheiros até receberem a primeira linha. Isso protege relatórios existentes se a leitura PostgreSQL falhar antes de produzir dados, mas não torna a escrita transacional.
+## 6 Vídeo de demonstração
 
-#### Capturas de T5
+O vídeo de demonstração do projeto está associado ao endereço fornecido pelo autor:
 
-![Pipeline Completo T5](./diagramas/T5_pipeline_completo.png)
+[https://youtu.be/GiM3ijfJCtM](https://youtu.be/GiM3ijfJCtM)
 
-*Figura 28 — Topologia de T5 com cópia do fluxo para os ramos JSON e XML.*
+![Figura 16 — QR code do vídeo de demonstração do projeto.](diagramas/QR_Video_Projeto_ISI_BMW_M_CORRIGIDO.png)
 
-![Configuração GroupBy T5](./diagramas/T5_config_groupby.png)
+O QR code incluído é o ficheiro existente em docs/diagramas/QR_Video_Projeto_ISI_BMW_M_CORRIGIDO.png. A descodificação confirmou exatamente o endereço acima. O link textual permite aceder ao mesmo destino sem leitor de QR.
 
-*Figura 29 — GroupBy atual: sete agregações, engine_hp_agregacao e modelos_com_resposta_nhtsa.*
+Para acompanhar a demonstração, as secções 4 e 5 explicam a preparação dos dados, a consulta à NHTSA, a junção, a carga PostgreSQL, as exportações, o resumo por email e a dashboard. As figuras 1 a 14 documentam as transformações e as provas de execução; a figura 15 apresenta a visualização dos resultados.
 
-![Métricas de Execução T5](./diagramas/T5_metricas_execucao.png)
+### 6.1 Pontos essenciais para a defesa
 
-*Figura 30 — JSON com 28 linhas e XML com 6; 56 emissões PostgreSQL representam cópia para dois ramos.*
+- O CSV contém 29 entradas; o registo sem peso é rejeitado e restam 28 veículos.
+- Os 13 registos sem dados NHTSA válidos permanecem NULL. Não representam zero campanhas.
+- O LEFT OUTER JOIN preserva todos os veículos válidos de T1.
+- PostgreSQL centraliza os dados que alimentam JSON, XML e as estatísticas do email.
+- T6 prepara as variáveis; Mail envia a mensagem dentro do job, após autenticação.
+- A dashboard apresenta os ficheiros exportados e distingue cobertura de dados de fiabilidade.
+- O objetivo atingido é demonstrar integração ETL. Não é possível identificar os BMW M mais fiáveis com estes dados.
 
-![Preview dos Ficheiros JSON e XML T5](./diagramas/T5_preview_json.png)
+<!-- PAGE -->
 
-*Figura 31 — Excerto apenas JSON; contagens totais comprovadas nas métricas.*
+## 7 Conclusão e trabalhos futuros
 
-![Preview XML por série T5](./diagramas/T5_preview_xml.png)
+### 7.1 Conclusão
 
-*Figura 31a — XML com seis séries, médias decimais e cobertura NHTSA; extremo direito parcialmente cortado.*
+O projeto atingiu o principal objetivo do TP1: construir e demonstrar um processo ETL que interliga fontes e formatos distintos. As seis transformações e o job realizam limpeza, validação, extração por API REST, enriquecimento, junção, cálculos, persistência PostgreSQL, exportação JSON/XML e preparação de uma notificação por email. A dashboard torna os resultados consultáveis.
 
-### 3.6. J_main — orquestração
+Os resultados verificados são 28 veículos, 15 respostas NHTSA válidas, 13 sem dados válidos e 6 séries. A rejeição do registo sem peso e a preservação de NULL impedem que a ausência de informação seja apresentada como um valor confirmado. A coerência entre os artefactos reforça o resultado técnico da integração.
 
-O job executa T1–T6 por ordem, seguido de Mail e Sucesso ETL. Cada transformação tem um hop de falha para Abortar por Erro; Mail não tem esse hop no job atual. O mecanismo controla a sequência e interrompe o caminho normal perante falha; não cria uma transação distribuída entre API, ficheiros e PostgreSQL.
+Contudo, não é possível concluir quais os BMW M mais fiáveis. As contagens de recalls representam campanhas de segurança e não são uma medida comprovada de fiabilidade mecânica. A amostra não contém um histórico de avarias, quilometragem, utilização, manutenção ou tempo de exposição que permita estimar essa fiabilidade. A pesquisa por modelo genérico e ano também não demonstra a aplicabilidade a cada variante.
 
-O autor confirmou uma execução manual completa no Pentaho em 20/10/2026, com `result=true` nas cinco transformações. Não foi fornecida uma duração confirmada para essa execução.
+A métrica recalls_por_100hp não possui justificação técnica forte como indicador de fiabilidade. Dividir campanhas pela potência não corrige diferenças de produção, idade ou uso, nem transforma campanhas em probabilidade de falha. Por isso, o rácio permanece documentado como cálculo exploratório, sem sustentar recomendações, rankings ou conclusões causais.
 
-#### Capturas de J_main
+A cobertura é ainda desigual: a Série 6 M não tem respostas válidas e a Série 5 M tem apenas uma em oito registos. Ausência de dados não prova ausência de problemas; mesmo uma resposta válida com zero campanhas não comprova fiabilidade mecânica. A conclusão positiva e defensável é o funcionamento da integração ETL, acompanhado de uma interpretação crítica dos seus limites.
 
-![Pipeline Completo J_main](./diagramas/J_main_pipeline_completo.png)
+### 7.2 Limitações operacionais e evolução
 
-*Figura 32 — Job final T1–T6, Mail, Sucesso ETL e seis hops de erro das transformações.*
+A implementação depende da configuração local PostgreSQL e SMTP. T6 mantém um caminho absoluto no job, as ligações PostgreSQL contêm campos de password ofuscados e o envio Mail requer a configuração manual validada. Estes aspetos limitam a portabilidade; não se apresenta o repositório como livre de credenciais. As provas existentes também não demonstram transação global ou recuperação integral de falhas.
 
-![Configuração de Entrada de Transformação J_main](./diagramas/J_main_config_trans.png)
+Como trabalho futuro, propõe-se documentar a origem de cada especificação, guardar data e parâmetros de cada consulta, analisar campanhas por identificador e testar a aplicabilidade por variante. Para estudar fiabilidade seriam necessários dados próprios de avarias e exposição. Na vertente técnica, interessa externalizar credenciais com validação, tornar T6 relativo, completar o tratamento de falhas Mail e testar uma carga transacional com publicação consistente das exportações.
 
-*Figura 33 — Entrada TRANS com caminho relativo.*
+<!-- PAGE -->
 
-![Métricas de Execução J_main](./diagramas/J_main_metricas_execucao.png)
+## 8 Referências bibliográficas
 
-*Figura 34 — Execução em 21/10/2026: sucesso de T1–T6, Mail, Sucesso ETL e J_main. Hora completa truncada.*
+[1] Ferreira, Luís; Ribeiro, Óscar. Integração de Sistemas de Informação — Trabalho Prático I. Licenciatura em Engenharia de Sistemas Informáticos, IPCA, 2026/2027. Enunciado fornecido: ESI-ISI 2026-27 - TP1 - enunciado.pdf, 5 páginas.
 
-## 4. Resultados, validação e limitações
+[2] National Highway Traffic Safety Administration. NHTSA Datasets and APIs. Documentação da fonte de campanhas e do acesso por API. Consultado em 22/10/2026. [https://www.nhtsa.gov/nhtsa-datasets-and-apis](https://www.nhtsa.gov/nhtsa-datasets-and-apis)
 
-### 4.1. Execução manual confirmada
+[3] National Highway Traffic Safety Administration. Check for Recalls. Informação sobre campanhas de segurança e distinção entre pesquisa geral por modelo e pesquisa por VIN. Consultado em 22/10/2026. [https://www.nhtsa.gov/recalls](https://www.nhtsa.gov/recalls)
 
-Em **20/10/2026**, o autor executou manualmente `J_main` no Pentaho e confirmou:
+[4] Hitachi Vantara. Pentaho Data Integration 10.2. Documentação da ferramenta ETL utilizada. Consultado em 22/10/2026. [https://docs.pentaho.com/pdia-data-integration/10.2-data-integration](https://docs.pentaho.com/pdia-data-integration/10.2-data-integration)
 
-| Verificação | Resultado |
-|---|---|
-| T1, T2, T3, T4 e T5 | Todas terminaram com `result=true` |
-| Registos carregados no PostgreSQL | 28 |
-| Contagem confirmada na tabela PostgreSQL | 28 |
-| Veículos exportados em JSON | 28 |
-| Séries exportadas em XML | 6 |
+[5] PostgreSQL Global Development Group. PostgreSQL 18 — CREATE TABLE. Referência sobre definição de tabelas e restrições; a versão da documentação não identifica a versão instalada. Consultado em 22/10/2026. [https://www.postgresql.org/docs/18/sql-createtable.html](https://www.postgresql.org/docs/18/sql-createtable.html)
 
-Esta confirmação substitui a pendência anterior de execução de T4, T5 e do job completo. Não implica que todas as consultas NHTSA tenham uma resposta válida nem comprova testes de falha, rollback ou reexecução da carga.
+[6] Correia, Gonçalo. Repositório isi-tp1-performance-fiabilidade. Código, dados, capturas e documentação do projeto. Inspeção da cópia local em 22/10/2026. [https://github.com/goncaloalo/isi-tp1-performance-fiabilidade](https://github.com/goncaloalo/isi-tp1-performance-fiabilidade)
 
-A fonte mantém 29 registos únicos, dos quais um é rejeitado por peso omisso. Os 28 veículos válidos distribuem-se por seis séries.
+[7] Correia, Gonçalo. Vídeo de demonstração do projeto ISI TP1. Endereço fornecido pelo autor e incorporado no QR code. [https://youtu.be/GiM3ijfJCtM](https://youtu.be/GiM3ijfJCtM)
 
-### 4.2. Valores por série e interpretação
+### Documentação interna de suporte
 
-A revisão anterior registou os seguintes valores nos artefactos consolidados. As médias mecânicas preservam a precisão decimal corrigida:
+As fontes técnicas são kettle/transformations/T1–T6, kettle/jobs/J_main.kjb, sql/01_schema.sql, os ficheiros em data/raw, data/staging, data/processed e data/output e o código de dashboard. A estratégia de ETL utiliza as capacidades de extração, limpeza e armazenamento descritas na documentação PDI [4].
 
-| Série | Modelos | Potência média (hp) | Respostas NHTSA válidas na revisão anterior | Campanhas nessas respostas | Média exploratória de recalls/100 hp |
-|---|---:|---:|---:|---:|---:|
-| Série 2 M | 4 | 422.50 | 4 | 5 | 0.2925 |
-| Série 3 M | 9 | 395.00 | 6 | 22 | 0.9700 |
-| Série 4 M | 4 | 487.75 | 3 | 7 | 0.5000 |
-| Série 5 M | 8 | 503.75 | 1 | 1 | 0.1600 |
-| Série 6 M | 2 | 533.50 | 0 | n/d | n/d |
-| Série 8 M | 1 | 600.00 | 1 | 1 | 0.1700 |
+Foram também consultados docs/decisoes_etl.md e docs/diagramas/README.md. Os registos históricos foram confrontados com os ficheiros atuais. As descrições anteriores de Insert/Update, estados NHTSA detalhados e ligação PostgreSQL por variáveis não representam a implementação aqui documentada.
 
-A revisão técnica anterior obteve 15 respostas HTTP 200 válidas e 13 HTTP 400. A distribuição HTTP da execução manual agora confirmada não foi fornecida; não se assume que repetiu esses valores. Estados e contagens da API podem mudar.
-
-As médias NHTSA usam apenas respostas válidas, com cobertura desigual. Um total por série pode contar a mesma campanha em consultas de anos distintos; não representa necessariamente campanhas únicas. A Série 6 sem respostas válidas na revisão anterior não demonstra ausência de campanhas.
-
-Os resultados não sustentam conclusões causais sobre motores turbo, qualidade de construção ou fiabilidade geral. Não foi verificado quais os componentes envolvidos em cada campanha; não se atribuem campanhas a airbags, cablagens ou motores sem análise específica.
-
-### 4.3. Testes locais
-
-A infraestrutura de testes Python foi retirada na simplificação de 21/10/2026, por não ser necessária à execução do Pentaho. Os resultados abaixo ficam preservados como registo histórico.
-
-A suite `unittest`, sem dependências externas, registou 23 testes aprovados na revisão técnica. Verifica CSV, 28 modelos válidos, quarentena, duplicados, campos obrigatórios, fórmulas, preço nulo do M5 E34, coerência CSV/JSON, agregações XML, médias decimais e estrutura Kettle.
-
-As fixtures locais cobrem zero válido, erro HTTP, timeout, JSON inválido e `Count` ausente/inválido. São testes de regras e artefactos, distintos da execução manual agora confirmada.
-
-Na revisão, Pan devolveu código de processo 0 mesmo com erro de ligação no log. Por isso, o código do processo isolado não basta como prova de sucesso: é necessário rever o log e o resultado Kettle.
-
-### 4.4. Limitações
-
-- Falta de fonte externa documentada por especificação do CSV.
-- Cobertura NHTSA centrada nos EUA e consulta por modelo genérico, sem confirmação por VIN ou variante.
-- Variação temporal da API e distinção obrigatória entre zero válido e falta de informação.
-- Ausência de controlo por parque circulante, produção, quilometragem, gravidade ou tempo de exposição.
-- `recalls_por_100hp` exploratório, sem validação como medida científica de fiabilidade mecânica.
-- Carga e exportações sem garantia transacional global.
-- Algumas capturas históricas/parciais foram preservadas e identificadas; as evidências essenciais atuais estão disponíveis segundo o inventário.
-- Vídeo, publicação e QR Code ainda pendentes.
-
-## 5. Demonstração em vídeo e QR Code
-
-O [guião](GUIAO_VIDEO.md) organiza uma demonstração de 3 a 5 minutos: problema, fontes, T1 e quarentena, T2 e REST, T3 e junção, T4 e PostgreSQL, T5 e relatórios, job e limitações.
-
-**Estado:** o vídeo ainda não foi produzido nem publicado. Não existe URL final ou QR Code confirmado.
-
-Após a gravação, publicar o vídeo, testar o acesso numa janela privada e só depois gerar o QR Code. Inserir o URL e a imagem nesta secção e atualizar o PDF. Preservam-se a [checklist das capturas](CHECKLIST_CAPTURAS.md) e a [checklist da demonstração](CHECKLIST_DEMONSTRACAO.md).
-
-## 6. Conclusão e trabalhos futuros
-
-A execução manual confirmada demonstra o funcionamento integrado de T1 a T5: limpeza, quarentena, integração REST, consolidação, carga de 28 registos e exportações de 28 veículos JSON e seis séries XML. Os nulos e as médias decimais fazem parte das regras de qualidade descritas.
-
-A análise é técnica e exploratória. Não prova uma relação entre potência e avarias nem uma classificação de fiabilidade das séries. As capturas essenciais já foram auditadas e sincronizadas. Para concluir a entrega académica, falta resolver as ressalvas de segurança/portabilidade, rever o relatório, gravar e publicar o vídeo, criar o QR Code real e atualizar o PDF.
-
-Como trabalhos futuros propõem-se documentar fontes primárias por especificação, registar data e URL de cada consulta, estudar campanhas individualmente e testar uma carga transacional numa base descartável. Comparações entre marcas ou preços de outros mercados só deverão avançar com fontes documentadas.
-
-## 7. Referências bibliográficas
-
-1. National Highway Traffic Safety Administration. “NHTSA Datasets and APIs — Recalls”. <https://www.nhtsa.gov/nhtsa-datasets-and-apis>. Consultado na revisão de 20/10/2026.
-2. National Highway Traffic Safety Administration. “Resources Related to Investigations and Recalls”. <https://www.nhtsa.gov/resources-investigations-recalls>. Consultado na revisão de 20/10/2026.
-3. Hitachi Vantara. “Pentaho Data Integration 10.2”. <https://docs.pentaho.com/pdia-data-integration/10.2-data-integration>. Consultado na revisão de 20/10/2026.
-4. Hitachi Vantara. “REST Client — General tab”. <https://docs.pentaho.com/pdia-data-integration/10.2-data-integration/pdi-transformation-steps-reference-overview/rest-client-step/options-rest-client/general-tab>. Consultado na revisão de 20/10/2026.
-5. Hitachi Vantara. “Group By”. <https://docs.pentaho.com/pdia-data-integration/10.2-data-integration/pdi-transformation-steps-reference-overview/group-by-landing-page-article>. Consultado na revisão de 20/10/2026.
-6. Hitachi Vantara. “Use Command Line Tools to Run Transformations and Jobs”. <https://docs.pentaho.com/pdia-data-integration/10.2-data-integration/advanced-topics-pentaho-data-integration-overview/use-command-line-tools-to-run-transformations-and-jobs>. Consultado na revisão de 20/10/2026.
-7. PostgreSQL Global Development Group. “PostgreSQL 18 — CREATE TABLE”. <https://www.postgresql.org/docs/18/sql-createtable.html>.
+As imagens são capturas reais do projeto. A captura da dashboard foi obtida durante esta revisão a partir de uma cópia dos ficheiros atuais. O QR fornecido foi reutilizado sem alteração. As capturas históricas de JSON input em T2 e do DDL antigo não são usadas como prova da configuração atual.

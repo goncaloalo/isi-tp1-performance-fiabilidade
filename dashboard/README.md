@@ -60,4 +60,4 @@ A NHTSA cobre campanhas de segurança dos EUA e a consulta do ETL usa modelo gen
 5. Atualize os dados e confirme que a página continua funcional. Uma falha de leitura apresenta erro e oculta os indicadores, evitando mostrar dados antigos como atuais.
 6. Verifique também numa janela estreita: os cartões reorganizam-se e a tabela permite deslocamento horizontal.
 
-O enunciado original não foi encontrado no repositório; a dashboard implementa o critério de visualização descrito no pedido. A aceitação formal deve ser confirmada com o enunciado/docente.
+O enunciado foi fornecido e confrontado com o projeto em 22/10/2026; está em `docs/enunciado_tp1_2026_2027.pdf`. O relatório final documenta a dashboard como visualização dos resultados ETL. A atualização é manual por leitura do JSON; não é streaming em tempo real.

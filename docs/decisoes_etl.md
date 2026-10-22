@@ -1,5 +1,31 @@
 # Decisões técnicas da pipeline ETL
 
+## Estado confirmado em 22/10/2026
+
+O [relatório final](relatorio_final.md) documenta a implementação atual, confrontada com os seis KTR, J_main, SQL, artefactos e capturas. O enunciado está em [enunciado_tp1_2026_2027.pdf](enunciado_tp1_2026_2027.pdf).
+
+| Aspeto | Estado atual |
+|---|---|
+| T2 | Estados OK/ERRO; HTTP 2xx, JSON válido e Count inteiro não negativo; zero válido é OK |
+| T3 | LEFT OUTER JOIN; preserva NULL; 28 veículos e 18 campos |
+| T4 | Table Output com TRUNCATE, batch e commit 1000; não usa Insert/Update |
+| PostgreSQL | Ligações locais diretas em T4/T5/T6, com campos de password ofuscados preexistentes |
+| T5 | 28 objetos JSON e 6 séries XML; médias decimais e cobertura NHTSA |
+| T6 e J_main | T1–T6, Mail e sucesso; seis caminhos de falha das transformações; Mail sem hop de falha explícito |
+| Email | Receção comprovada por captura; password manual validada; SMTP_PASSWORD não validada |
+| Portabilidade | Caminho absoluto de T6 e configuração local preservados |
+| Resultados | 28 veículos, 15 respostas válidas, 13 sem dados e 6 séries |
+| Dashboard | Leitura do JSON; atualização manual, sem streaming nem execução ETL |
+| Vídeo e QR | https://youtu.be/GiM3ijfJCtM; QR existente descodificado e confirmado |
+| Relatório | [Word editável](relatorio_final.docx) e [PDF final](../output/pdf/relatorio_final.pdf), 17 páginas |
+
+As validações atuais são inspeções dos artefactos e uma verificação local da dashboard. Não foi executado Pentaho, alterada a base de dados ou enviado email nesta revisão. A suite histórica de 23 testes foi retirada; não é uma prova de execução atual.
+
+## Registo histórico preservado
+
+O texto seguinte conserva as decisões e resultados de revisões anteriores. As descrições de Insert/Update, estados NHTSA detalhados, propriedades PostgreSQL, sequência apenas T1–T5 e vídeo pendente foram ultrapassadas pelo quadro acima.
+
+
 **Nota de auditoria — 21/10/2026:** este texto preserva decisões de uma revisão anterior. O [inventário final](diagramas/README.md) confronta as capturas com os ficheiros originais atuais: T2 usa OK/ERRO, T4 usa Table Output com TRUNCATE e o job inclui T6/Mail. Não assumir que as descrições históricas de Insert/Update, ligação por variáveis ou pendência de execução representam o estado atual. As evidências essenciais estão disponíveis; persistem as ressalvas de segurança e portabilidade descritas no inventário. Não foi executado Pentaho nesta auditoria.
 
 Este documento regista as decisões que correspondem à implementação versionada após a revisão final. As capturas existentes podem anteceder algumas correções; em caso de divergência, os ficheiros `.ktr`, `.kjb`, o DDL e os testes são a referência técnica.

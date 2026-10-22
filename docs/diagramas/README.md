@@ -1,5 +1,11 @@
 # Inventário de diagramas e capturas
 
+## Atualização do relatório final em 22/10/2026
+
+O relatório final reutiliza as capturas essenciais verificadas, inclui o [QR existente](QR_Video_Projeto_ISI_BMW_M_CORRIGIDO.png) e acrescenta [dashboard_relatorio_final.png](dashboard_relatorio_final.png). Esta última é uma captura real da dashboard executada numa cópia dos ficheiros atuais; não representa uma nova execução ETL.
+
+O QR foi descodificado e aponta para https://youtu.be/GiM3ijfJCtM. Word e PDF final foram gerados e revistos visualmente. As referências a vídeo/QR/PDF pendentes no registo de 21/10 abaixo são históricas e ficam ultrapassadas por esta atualização. As restantes capturas foram preservadas. O QR anterior foi substituído pelo QR corrigido fornecido pelo autor, com atualização do link no relatório e na documentação.
+
 ## Resultado da auditoria de 21/10/2026
 
 Screenshots é a fonte prioritária das novas evidências. Inventário inicial: 24 PNG na origem e 39 no destino; 63 ficheiros, 45 conteúdos distintos e 18 duplicados exatos por SHA-256. Todos os conteúdos distintos foram inspecionados visualmente e comparados com os seis KTR e o job reais. Seleção final: 43 PNG.
