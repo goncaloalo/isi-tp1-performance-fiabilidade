@@ -1,6 +1,6 @@
 # ISI TP1 — Performance e campanhas de segurança da gama BMW M
 
-**Relatório final — 22/10/2026:** [Word](docs/relatorio_final.docx), [PDF](output/pdf/relatorio_final.pdf) e [fonte Markdown](docs/relatorio_final.md). Inclui os oito componentes pedidos no enunciado, T1–T6, J_main, PostgreSQL, JSON/XML, email, dashboard, vídeo e QR. Resultados verificados: 28/15/13/6. As conclusões não identificam os BMW M mais fiáveis e destacam a integração ETL.
+**Relatório final — 22/10/2026:** [Word](docs/relatorio_final.docx), [PDF](docs/relatorio_final.pdf) e [fonte Markdown](docs/relatorio_final.md). Inclui os oito componentes pedidos no enunciado, T1–T6, J_main, PostgreSQL, JSON/XML, email, dashboard, vídeo e QR. Resultados verificados: 28/15/13/6. As conclusões não identificam os BMW M mais fiáveis e destacam a integração ETL.
 
 **Auditoria final das capturas — 21/10/2026:** [inventário e seleção](docs/diagramas/README.md). Foram inspecionados 63 PNG, com 45 conteúdos distintos; destino final com 43 imagens. As duas capturas de J_main foram substituídas pelas versões com T6/Mail e foram acrescentadas quatro capturas T6. As evidências essenciais estão integradas no relatório final; o estado de 20/10 abaixo é histórico.
 
@@ -111,7 +111,7 @@ Visualização dos resultados ETL, sem dependências nem internet: [instruções
 - [Inventário de diagramas](docs/diagramas/README.md)
 - [Decisões ETL](docs/decisoes_etl.md)
 - [Relatório final editável em Word](docs/relatorio_final.docx)
-- [Relatório final em PDF](output/pdf/relatorio_final.pdf)
+- [Relatório final em PDF](docs/relatorio_final.pdf)
 - [Enunciado do TP1](docs/enunciado_tp1_2026_2027.pdf)
 - [Verificação e pendências da entrega](docs/ENTREGA_RELATORIO_FINAL.md)
 

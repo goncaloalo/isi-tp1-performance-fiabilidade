@@ -6,7 +6,7 @@ Data da revisão: 22 de outubro de 2026.
 
 - `docs/relatorio_final.md`: fonte textual revista e completa.
 - `docs/relatorio_final.docx`: documento editável com índice, 17 páginas e 16 figuras.
-- `output/pdf/relatorio_final.pdf`: versão para leitura e entrega, exportada do Word e revista visualmente em todas as páginas.
+- `docs/relatorio_final.pdf`: versão para leitura e entrega, exportada do Word e revista visualmente em todas as páginas.
 - `docs/enunciado_tp1_2026_2027.pdf`: cópia do enunciado fornecido.
 - `docs/diagramas/dashboard_relatorio_final.png`: nova captura real da dashboard local.
 

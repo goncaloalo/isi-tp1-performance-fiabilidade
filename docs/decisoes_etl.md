@@ -17,7 +17,7 @@ O [relatório final](relatorio_final.md) documenta a implementação atual, conf
 | Resultados | 28 veículos, 15 respostas válidas, 13 sem dados e 6 séries |
 | Dashboard | Leitura do JSON; atualização manual, sem streaming nem execução ETL |
 | Vídeo e QR | https://youtu.be/GiM3ijfJCtM; QR existente descodificado e confirmado |
-| Relatório | [Word editável](relatorio_final.docx) e [PDF final](../output/pdf/relatorio_final.pdf), 17 páginas |
+| Relatório | [Word editável](relatorio_final.docx) e [PDF final](relatorio_final.pdf), 17 páginas |
 
 As validações atuais são inspeções dos artefactos e uma verificação local da dashboard. Não foi executado Pentaho, alterada a base de dados ou enviado email nesta revisão. A suite histórica de 23 testes foi retirada; não é uma prova de execução atual.
 
